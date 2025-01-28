@@ -1,4 +1,4 @@
-use iced::{widget::text, Element, Length, Task};
+use iced::{Element, Length, Task};
 use widget::ChartWidget;
 
 mod backend;

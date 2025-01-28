@@ -53,7 +53,7 @@ impl ChartWidget {
     }
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for ChartWidget
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for ChartWidget
 where
     Renderer: geometry::Renderer,
 {
@@ -84,20 +84,19 @@ where
     #[inline]
     fn draw(
         &self,
-        tree: &Tree,
+        _tree: &Tree,
         renderer: &mut Renderer,
         _theme: &Theme,
         _defaults: &renderer::Style,
         layout: Layout<'_>,
         _cursor: Cursor,
-        viewport: &Rectangle,
+        _viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
         if bounds.width < 1.0 || bounds.height < 1.0 {
             return;
         }
 
-        //renderer.with_translation(Vector::new(bounds.x, bounds.y), |renderer| {
         let mut frame = canvas::Frame::new(renderer, bounds.size());
         let geometry = {
             {
@@ -145,13 +144,13 @@ where
     #[inline]
     fn on_event(
         &mut self,
-        tree: &mut Tree,
-        event: iced::Event,
-        layout: Layout<'_>,
-        cursor: Cursor,
+        _tree: &mut Tree,
+        _event: iced::Event,
+        _layout: Layout<'_>,
+        _cursor: Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
-        shell: &mut Shell<'_, Message>,
+        _shell: &mut Shell<'_, Message>,
         _rectangle: &Rectangle,
     ) -> iced::event::Status {
         //let bounds = layout.bounds();
@@ -174,9 +173,9 @@ where
 
     fn mouse_interaction(
         &self,
-        tree: &Tree,
-        layout: Layout<'_>,
-        cursor: Cursor,
+        _tree: &Tree,
+        _layout: Layout<'_>,
+        _cursor: Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {

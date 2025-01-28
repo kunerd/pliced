@@ -7,8 +7,6 @@
 use std::collections::HashSet;
 
 use iced::advanced::graphics::geometry;
-use iced::advanced::text;
-use iced::advanced::text::Paragraph;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
