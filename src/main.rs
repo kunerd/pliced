@@ -1,9 +1,5 @@
 use iced::{Element, Length, Task};
-use widget::ChartWidget;
-
-mod backend;
-mod utils;
-mod widget;
+use pliced::widget::ChartWidget;
 
 fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view).run()

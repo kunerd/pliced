@@ -3,6 +3,9 @@ name = "pliced"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "pliced"
+
 [dependencies]
 plotters = { version = "0.3" }
 plotters-backend = "0.3"
