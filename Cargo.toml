@@ -1,0 +1,10 @@
+[package]
+name = "pliced"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plotters = { version = "0.3" }
+plotters-backend = "0.3"
+iced = { version = "0.13", features = ["canvas", "tokio", "advanced"] }
+once_cell = "1"
