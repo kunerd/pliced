@@ -1,7 +1,6 @@
-use iced::{widget::text, Element, Renderer, Task};
+use iced::{Element, Renderer, Task};
 use pliced::widget::ChartWidget;
 use plotters::{
-    chart,
     prelude::PathElement,
     series::LineSeries,
     style::{Color, IntoFont, BLACK, RED, WHITE},
@@ -47,7 +46,6 @@ impl pliced::Program<Message> for App {
     fn draw(
         &self,
         _state: &Self::State,
-        _renderer: &Renderer,
         chart: &mut plotters::prelude::ChartBuilder<pliced::backend::IcedChartBackend<Renderer>>,
         _theme: &iced::Theme,
         _bounds: iced::Rectangle,
@@ -64,10 +62,7 @@ impl pliced::Program<Message> for App {
         chart.configure_mesh().draw().unwrap();
 
         chart
-            .draw_series(LineSeries::new(
-                (-50..=50).map(|x| x as f32 / 50.0).map(|x| (x, x * x)),
-                &RED,
-            ))
+            .draw_series(LineSeries::new(self.data.iter().cloned(), &RED))
             .unwrap()
             .label("y = x^2")
             .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED));

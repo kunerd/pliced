@@ -115,10 +115,12 @@ where
         let state = tree.state.downcast_ref::<P::State>();
 
         let mut frame = canvas::Frame::new(renderer, bounds.size());
+
         let root = IcedChartBackend::new(&mut frame, self.shaping).into_drawing_area();
-        let mut chart = ChartBuilder::on(&root);
+        let mut chart_builder = ChartBuilder::on(&root);
+
         self.program
-            .draw(state, renderer, &mut chart, theme, bounds, cursor);
+            .draw(state, &mut chart_builder, theme, bounds, cursor);
         root.present().unwrap();
 
         let geometry = frame.into_geometry();

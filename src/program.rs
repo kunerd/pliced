@@ -1,7 +1,7 @@
 use iced::{advanced::graphics::geometry, mouse, Event, Rectangle};
-use plotters::chart::{self, ChartBuilder};
+use plotters::chart::ChartBuilder;
 
-use crate::{backend::IcedChartBackend, widget::ChartWidget};
+use crate::backend::IcedChartBackend;
 
 pub enum Status {
     Ignored,
@@ -47,7 +47,6 @@ where
     fn draw(
         &self,
         state: &Self::State,
-        renderer: &Renderer,
         chart: &mut ChartBuilder<IcedChartBackend<Renderer>>,
         theme: &Theme,
         bounds: Rectangle,
@@ -90,13 +89,12 @@ where
     fn draw(
         &self,
         state: &Self::State,
-        renderer: &Renderer,
         chart: &mut ChartBuilder<IcedChartBackend<Renderer>>,
         theme: &Theme,
         bounds: Rectangle,
         cursor: mouse::Cursor,
     )  {
-        T::draw(self, state, renderer, chart, theme, bounds, cursor)
+        T::draw(self, state, chart, theme, bounds, cursor)
     }
 
     fn mouse_interaction(
