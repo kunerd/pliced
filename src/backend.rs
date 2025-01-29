@@ -4,14 +4,14 @@
 // Copyright: 2022, Joylei <leingliu@gmail.com>
 // License: MIT
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
+use std::sync::Mutex;
 
 use iced::advanced::graphics::geometry;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
 use iced::{font, Font, Size};
-use once_cell::unsync::Lazy;
 use plotters_backend::{
     text_anchor,
     //FontTransform,
@@ -318,8 +318,7 @@ where
 }
 
 fn style_to_font<S: BackendTextStyle>(style: &S) -> Font {
-    // iced font family requires static str
-    static mut FONTS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
+    static FONTS: Mutex<BTreeSet<&'static str>> = Mutex::new(BTreeSet::new());
 
     Font {
         family: match style.family() {
@@ -327,12 +326,12 @@ fn style_to_font<S: BackendTextStyle>(style: &S) -> Font {
             FontFamily::SansSerif => font::Family::SansSerif,
             FontFamily::Monospace => font::Family::Monospace,
             FontFamily::Name(s) => {
-                let s = unsafe {
-                    if !FONTS.contains(s) {
-                        FONTS.insert(String::from(s));
-                    }
-                    FONTS.get(s).unwrap().as_str()
-                };
+                let mut lock = FONTS.lock().unwrap();
+                if !lock.contains(s) {
+                    let s = String::leak(String::from(s));
+                    lock.insert(s);
+                }
+                let s = *lock.get(s).unwrap();
                 font::Family::Name(s)
             }
         },
