@@ -43,7 +43,7 @@ impl StdError for Error {}
 use crate::utils::{cvt_color, cvt_stroke, CvtPoint};
 
 /// The Iced drawing backend
-pub(crate) struct IcedChartBackend<'a, Renderer>
+pub struct IcedChartBackend<'a, Renderer>
 where
     Renderer: geometry::Renderer,
 {

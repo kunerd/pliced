@@ -15,19 +15,31 @@ use plotters::prelude::*;
 
 use crate::backend::IcedChartBackend;
 
+pub type ChartBuilderFn<Renderer> =
+    Box<dyn for<'a, 'b> Fn(&mut ChartBuilder<'a, 'b, IcedChartBackend<'b, Renderer>>)>;
+
 /// Chart container, turns [`Chart`]s to [`Widget`]s
-pub struct ChartWidget {
-    series: Vec<f32>,
+pub struct ChartWidget<Renderer>
+where
+    Renderer: geometry::Renderer,
+{
+    builder: ChartBuilderFn<Renderer>,
     width: Length,
     height: Length,
     shaping: Shaping,
 }
 
-impl ChartWidget {
+impl<Renderer> ChartWidget<Renderer>
+where
+    Renderer: geometry::Renderer,
+{
     /// create a new [`ChartWidget`]
-    pub fn new(series: Vec<f32>) -> Self {
+    pub fn new(
+        builder: impl for<'a, 'b> Fn(&mut ChartBuilder<'a, 'b, IcedChartBackend<'b, Renderer>>)
+            + 'static,
+    ) -> Self {
         Self {
-            series,
+            builder: Box::new(builder),
             width: Length::Fill,
             height: Length::Fill,
             shaping: Default::default(),
@@ -53,7 +65,7 @@ impl ChartWidget {
     }
 }
 
-impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for ChartWidget
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for ChartWidget<Renderer>
 where
     Renderer: geometry::Renderer,
 {
@@ -98,43 +110,12 @@ where
         }
 
         let mut frame = canvas::Frame::new(renderer, bounds.size());
-        let geometry = {
-            {
-                let x_range = 0..self.series.len();
-                let y_min = *self.series.iter().min_by(|a, b| a.total_cmp(b)).unwrap();
-                let y_max = *self.series.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
-                let y_range = y_min..y_max;
+        let root = IcedChartBackend::new(&mut frame, self.shaping).into_drawing_area();
+        let mut chart = ChartBuilder::on(&root);
+        (self.builder)(&mut chart);
+        root.present().unwrap();
 
-                let root = IcedChartBackend::new(&mut frame, self.shaping).into_drawing_area();
-                let mut chart = ChartBuilder::on(&root)
-                    .caption("y=x^2", ("sans-serif", 50).into_font())
-                    .margin(5)
-                    .x_label_area_size(30)
-                    .y_label_area_size(30)
-                    .build_cartesian_2d(x_range, y_range)
-                    .unwrap();
-
-                chart.configure_mesh().draw().unwrap();
-
-                chart
-                    .draw_series(LineSeries::new(
-                        self.series.iter().cloned().enumerate(),
-                        RED,
-                    ))
-                    .unwrap();
-
-                chart
-                    .configure_series_labels()
-                    .background_style(WHITE.mix(0.8))
-                    .border_style(BLACK)
-                    .draw()
-                    .unwrap();
-
-                root.present().unwrap();
-            }
-
-            frame.into_geometry()
-        };
+        let geometry = frame.into_geometry();
 
         renderer.with_translation(Vector::new(bounds.x, bounds.y), |renderer| {
             renderer.draw_geometry(geometry);
@@ -185,12 +166,13 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> From<ChartWidget> for Element<'a, Message, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> From<ChartWidget<Renderer>>
+    for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
-    Renderer: geometry::Renderer,
+    Renderer: geometry::Renderer + 'a,
 {
-    fn from(widget: ChartWidget) -> Self {
+    fn from(widget: ChartWidget<Renderer>) -> Self {
         Element::new(widget)
     }
 }
