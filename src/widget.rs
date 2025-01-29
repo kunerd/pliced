@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::backend::IcedChartBackend;
+use crate::event::{self, Event};
 use crate::program::Program;
 
 use iced::advanced::graphics::geometry;
@@ -133,31 +134,37 @@ where
     #[inline]
     fn on_event(
         &mut self,
-        _tree: &mut Tree,
-        _event: iced::Event,
-        _layout: Layout<'_>,
-        _cursor: Cursor,
+        tree: &mut Tree,
+        event: iced::Event,
+        layout: Layout<'_>,
+        cursor: Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
-        _shell: &mut Shell<'_, Message>,
+        shell: &mut Shell<'_, Message>,
         _rectangle: &Rectangle,
-    ) -> iced::event::Status {
-        //let bounds = layout.bounds();
-        //let canvas_event = match event {
-        //    iced::Event::Mouse(mouse_event) => Some(canvas::Event::Mouse(mouse_event)),
-        //    iced::Event::Keyboard(keyboard_event) => Some(canvas::Event::Keyboard(keyboard_event)),
-        //    _ => None,
-        //};
-        //if let Some(canvas_event) = canvas_event {
+    ) -> event::Status {
+        let bounds = layout.bounds();
 
-        //    let (event_status, message) = self.chart.update(state, canvas_event, bounds, cursor);
+        let chart_event = match event {
+            iced::Event::Mouse(mouse_event) => Some(Event::Mouse(mouse_event)),
+            iced::Event::Touch(touch_event) => Some(Event::Touch(touch_event)),
+            iced::Event::Keyboard(keyboard_event) => Some(Event::Keyboard(keyboard_event)),
+            iced::Event::Window(_) => None,
+        };
 
-        //    if let Some(message) = message {
-        //        shell.publish(message);
-        //    }
-        //    return event_status;
-        //}
-        iced::event::Status::Ignored
+        if let Some(chart_event) = chart_event {
+            let state = tree.state.downcast_mut::<P::State>();
+
+            let (event_status, message) = self.program.update(state, chart_event, bounds, cursor);
+
+            if let Some(message) = message {
+                shell.publish(message);
+            }
+
+            return event_status;
+        }
+
+        event::Status::Ignored
     }
 
     fn mouse_interaction(

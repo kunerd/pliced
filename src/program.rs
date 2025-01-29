@@ -1,12 +1,10 @@
-use iced::{advanced::graphics::geometry, mouse, Event, Rectangle};
+use iced::{advanced::graphics::geometry, mouse, Rectangle};
 use plotters::chart::ChartBuilder;
 
-use crate::backend::IcedChartBackend;
-
-pub enum Status {
-    Ignored,
-    Captured,
-}
+use crate::{
+    backend::IcedChartBackend,
+    event::{self, Event},
+};
 
 pub trait Program<Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
@@ -32,8 +30,8 @@ where
         _event: Event,
         _bounds: Rectangle,
         _cursor: mouse::Cursor,
-    ) -> (Status, Option<Message>) {
-        (Status::Ignored, None)
+    ) -> (event::Status, Option<Message>) {
+        (event::Status::Ignored, None)
     }
 
     /// Draws the state of the [`Program`], producing a bunch of [`Geometry`].
@@ -82,7 +80,7 @@ where
         event: Event,
         bounds: Rectangle,
         cursor: mouse::Cursor,
-    ) -> (Status, Option<Message>) {
+    ) -> (event::Status, Option<Message>) {
         T::update(self, state, event, bounds, cursor)
     }
 
@@ -93,7 +91,7 @@ where
         theme: &Theme,
         bounds: Rectangle,
         cursor: mouse::Cursor,
-    )  {
+    ) {
         T::draw(self, state, chart, theme, bounds, cursor)
     }
 
@@ -106,4 +104,3 @@ where
         T::mouse_interaction(self, state, bounds, cursor)
     }
 }
-
