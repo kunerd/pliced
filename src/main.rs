@@ -1,6 +1,7 @@
-use iced::{Element, Length, Task};
+use iced::{widget::text, Element, Renderer, Task};
 use pliced::widget::ChartWidget;
 use plotters::{
+    chart,
     prelude::PathElement,
     series::LineSeries,
     style::{Color, IntoFont, BLACK, RED, WHITE},
@@ -36,29 +37,46 @@ impl App {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let data = self.data.to_vec();
-        ChartWidget::new(move |chart| {
-            let mut chart = chart
-                .caption("My Chart", ("sans-serif", 50).into_font())
-                .build_cartesian_2d(-1f32..1f32, -0.1f32..1f32)
-                .unwrap();
-            chart.configure_mesh().draw().unwrap();
+        ChartWidget::new(self).into()
+    }
+}
 
-            chart
-                .draw_series(LineSeries::new(data.iter().cloned(), &RED))
-                .unwrap()
-                .label("y = x^2")
-                .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED));
+impl pliced::Program<Message> for App {
+    type State = ();
 
-            chart
-                .configure_series_labels()
-                .background_style(WHITE.mix(0.8))
-                .border_style(BLACK)
-                .draw()
-                .unwrap();
-        })
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+    fn draw(
+        &self,
+        _state: &Self::State,
+        _renderer: &Renderer,
+        chart: &mut plotters::prelude::ChartBuilder<pliced::backend::IcedChartBackend<Renderer>>,
+        _theme: &iced::Theme,
+        _bounds: iced::Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) {
+        let mut chart = chart
+            .caption("y=x^2", ("sans-serif", 50).into_font())
+            .margin(5)
+            .x_label_area_size(30)
+            .y_label_area_size(30)
+            .build_cartesian_2d(-1f32..1f32, -0.1f32..1f32)
+            .unwrap();
+
+        chart.configure_mesh().draw().unwrap();
+
+        chart
+            .draw_series(LineSeries::new(
+                (-50..=50).map(|x| x as f32 / 50.0).map(|x| (x, x * x)),
+                &RED,
+            ))
+            .unwrap()
+            .label("y = x^2")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED));
+
+        chart
+            .configure_series_labels()
+            .background_style(WHITE.mix(0.8))
+            .border_style(BLACK)
+            .draw()
+            .unwrap();
     }
 }

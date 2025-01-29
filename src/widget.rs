@@ -1,11 +1,10 @@
-// plotters-iced
-//
-// Iced backend for Plotters
-// Copyright: 2022, Joylei <leingliu@gmail.com>
-// License: MIT
+use std::marker::PhantomData;
+
+use crate::backend::IcedChartBackend;
+use crate::program::Program;
 
 use iced::advanced::graphics::geometry;
-use iced::advanced::widget::Tree;
+use iced::advanced::widget::{tree, Tree};
 use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
@@ -13,36 +12,38 @@ use iced::Vector;
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use plotters::prelude::*;
 
-use crate::backend::IcedChartBackend;
-
 pub type ChartBuilderFn<Renderer> =
     Box<dyn for<'a, 'b> Fn(&mut ChartBuilder<'a, 'b, IcedChartBackend<'b, Renderer>>)>;
 
-/// Chart container, turns [`Chart`]s to [`Widget`]s
-pub struct ChartWidget<Renderer>
+pub struct ChartWidget<P, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
+    P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
 {
-    builder: ChartBuilderFn<Renderer>,
+    program: P,
     width: Length,
     height: Length,
     shaping: Shaping,
+    message_: PhantomData<Message>,
+    theme_: PhantomData<Theme>,
+    renderer_: PhantomData<Renderer>,
 }
 
-impl<Renderer> ChartWidget<Renderer>
+impl<P, Message, Theme, Renderer> ChartWidget<P, Message, Theme, Renderer>
 where
+    P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
 {
     /// create a new [`ChartWidget`]
-    pub fn new(
-        builder: impl for<'a, 'b> Fn(&mut ChartBuilder<'a, 'b, IcedChartBackend<'b, Renderer>>)
-            + 'static,
-    ) -> Self {
+    pub fn new(program: P) -> Self {
         Self {
-            builder: Box::new(builder),
+            program,
             width: Length::Fill,
             height: Length::Fill,
             shaping: Default::default(),
+            message_: PhantomData,
+            theme_: PhantomData,
+            renderer_: PhantomData,
         }
     }
 
@@ -65,22 +66,24 @@ where
     }
 }
 
-impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for ChartWidget<Renderer>
+impl<P, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for ChartWidget<P, Message, Theme, Renderer>
 where
+    P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
 {
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
     }
 
-    //fn tag(&self) -> tree::Tag {
-    //    struct Tag<T>(T);
-    //    tree::Tag::of::<Tag<C::State>>()
-    //}
+    fn tag(&self) -> tree::Tag {
+        struct Tag<T>(T);
+        tree::Tag::of::<Tag<P::State>>()
+    }
 
-    //fn state(&self) -> tree::State {
-    //    tree::State::new(C::State::default())
-    //}
+    fn state(&self) -> tree::State {
+        tree::State::new(P::State::default())
+    }
 
     #[inline]
     fn layout(
@@ -96,12 +99,12 @@ where
     #[inline]
     fn draw(
         &self,
-        _tree: &Tree,
+        tree: &Tree,
         renderer: &mut Renderer,
-        _theme: &Theme,
+        theme: &Theme,
         _defaults: &renderer::Style,
         layout: Layout<'_>,
-        _cursor: Cursor,
+        cursor: Cursor,
         _viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
@@ -109,10 +112,13 @@ where
             return;
         }
 
+        let state = tree.state.downcast_ref::<P::State>();
+
         let mut frame = canvas::Frame::new(renderer, bounds.size());
         let root = IcedChartBackend::new(&mut frame, self.shaping).into_drawing_area();
         let mut chart = ChartBuilder::on(&root);
-        (self.builder)(&mut chart);
+        self.program
+            .draw(state, renderer, &mut chart, theme, bounds, cursor);
         root.present().unwrap();
 
         let geometry = frame.into_geometry();
@@ -166,13 +172,17 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> From<ChartWidget<Renderer>>
+impl<'a, P, Message, Theme, Renderer> From<ChartWidget<P, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
-    Renderer: geometry::Renderer + 'a,
+    Theme: 'a,
+    Renderer: 'a + geometry::Renderer,
+    P: 'a + Program<Message, Theme, Renderer>,
 {
-    fn from(widget: ChartWidget<Renderer>) -> Self {
-        Element::new(widget)
+    fn from(
+        canvas: ChartWidget<P, Message, Theme, Renderer>,
+    ) -> Element<'a, Message, Theme, Renderer> {
+        Element::new(canvas)
     }
 }
