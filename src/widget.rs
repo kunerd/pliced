@@ -162,15 +162,16 @@ where
 
     fn mouse_interaction(
         &self,
-        _tree: &Tree,
-        _layout: Layout<'_>,
-        _cursor: Cursor,
+        tree: &Tree,
+        layout: Layout<'_>,
+        cursor: Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        //let bounds = layout.bounds();
-        //self.chart.mouse_interaction(state, bounds, cursor)
-        mouse::Interaction::None
+        let bounds = layout.bounds();
+        let state = tree.state.downcast_ref::<P::State>();
+
+        self.program.mouse_interaction(state, bounds, cursor)
     }
 }
 
