@@ -13,10 +13,10 @@ use iced::Vector;
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use plotters::prelude::*;
 
-pub type ChartBuilderFn<Renderer> =
+pub type ChartBuilderFn<Renderer = iced::Renderer> =
     Box<dyn for<'a, 'b> Fn(&mut ChartBuilder<'a, 'b, IcedChartBackend<'b, Renderer>>)>;
 
-pub struct ChartWidget<P, Message, Theme = iced::Theme, Renderer = iced::Renderer>
+pub struct ChartWidget<'a, P, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
@@ -25,12 +25,13 @@ where
     width: Length,
     height: Length,
     shaping: Shaping,
+    cache: Option<&'a geometry::Cache<Renderer>>,
     message_: PhantomData<Message>,
     theme_: PhantomData<Theme>,
     renderer_: PhantomData<Renderer>,
 }
 
-impl<P, Message, Theme, Renderer> ChartWidget<P, Message, Theme, Renderer>
+impl<'a, P, Message, Theme, Renderer> ChartWidget<'a, P, Message, Theme, Renderer>
 where
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
@@ -42,6 +43,7 @@ where
             width: Length::Fill,
             height: Length::Fill,
             shaping: Default::default(),
+            cache: None,
             message_: PhantomData,
             theme_: PhantomData,
             renderer_: PhantomData,
@@ -65,10 +67,15 @@ where
         self.shaping = shaping;
         self
     }
+
+    pub fn with_cache(mut self, cache: &'a geometry::Cache<Renderer>) -> Self {
+        self.cache = Some(cache);
+        self
+    }
 }
 
 impl<P, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for ChartWidget<P, Message, Theme, Renderer>
+    for ChartWidget<'_, P, Message, Theme, Renderer>
 where
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
@@ -115,16 +122,28 @@ where
 
         let state = tree.state.downcast_ref::<P::State>();
 
-        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let geometry = if let Some(cache) = &self.cache {
+            cache.draw(renderer, bounds.size(), |frame| {
+                let root = IcedChartBackend::new(frame, self.shaping).into_drawing_area();
+                let mut chart_builder = ChartBuilder::on(&root);
 
-        let root = IcedChartBackend::new(&mut frame, self.shaping).into_drawing_area();
-        let mut chart_builder = ChartBuilder::on(&root);
+                self.program
+                    .draw(state, &mut chart_builder, theme, bounds, cursor);
 
-        self.program
-            .draw(state, &mut chart_builder, theme, bounds, cursor);
-        root.present().unwrap();
+                root.present().unwrap();
+            })
+        } else {
+            let mut frame = canvas::Frame::new(renderer, bounds.size());
+            let root = IcedChartBackend::new(&mut frame, self.shaping).into_drawing_area();
+            let mut chart_builder = ChartBuilder::on(&root);
 
-        let geometry = frame.into_geometry();
+            self.program
+                .draw(state, &mut chart_builder, theme, bounds, cursor);
+
+            root.present().unwrap();
+
+            frame.into_geometry()
+        };
 
         renderer.with_translation(Vector::new(bounds.x, bounds.y), |renderer| {
             renderer.draw_geometry(geometry);
@@ -182,7 +201,7 @@ where
     }
 }
 
-impl<'a, P, Message, Theme, Renderer> From<ChartWidget<P, Message, Theme, Renderer>>
+impl<'a, P, Message, Theme, Renderer> From<ChartWidget<'a, P, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
@@ -191,8 +210,8 @@ where
     P: 'a + Program<Message, Theme, Renderer>,
 {
     fn from(
-        canvas: ChartWidget<P, Message, Theme, Renderer>,
+        chart: ChartWidget<'a, P, Message, Theme, Renderer>,
     ) -> Element<'a, Message, Theme, Renderer> {
-        Element::new(canvas)
+        Element::new(chart)
     }
 }
