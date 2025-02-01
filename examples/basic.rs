@@ -39,8 +39,8 @@ impl App {
             Chart::new()
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .data(Series::Line {
-                    color: iced::Color::from_rgba(100.0, 150.0, 0.0, 0.8).into(),
+                .series(Series::Line {
+                    color: iced::Color::from_rgba8(255, 0, 0, 0.5).into(),
                     data: self.data.clone(),
                 }),
         )

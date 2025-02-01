@@ -56,7 +56,7 @@ where
         }
     }
 
-    pub fn data(mut self, series: Series<Data>) -> Self {
+    pub fn series(mut self, series: Series<Data>) -> Self {
         match &series {
             Series::Line { color: _, data } => {
                 let x_min = data
@@ -89,6 +89,8 @@ where
                 if let (Some(min), Some(max)) = (y_min, y_max) {
                     self.program.y_range = min..max;
                 }
+
+                self.program.series = Some(series);
             }
         }
 
@@ -330,21 +332,21 @@ where
             pos: Pos::default(),
         };
 
-        chart
-            .configure_mesh()
-            .label_style(label_style)
-            .x_labels(10)
-            .bold_line_style(GREEN.mix(0.1))
-            .light_line_style(BLUE.mix(0.1))
-            .draw()
-            .unwrap();
-
         if let Some(Series::Line { data, color }) = &self.series {
             let style: ShapeStyle = color.into();
             chart
                 .draw_series(LineSeries::new(data.clone(), style))
                 .unwrap();
         }
+
+        chart
+            .configure_mesh()
+            .label_style(label_style)
+            .x_labels(10)
+            //.bold_line_style(GREEN.mix(0.1))
+            //.light_line_style(BLUE.mix(0.1))
+            .draw()
+            .unwrap();
     }
 }
 
@@ -398,12 +400,3 @@ impl From<Color> for BackendColor {
         color.to_backend_color()
     }
 }
-
-//impl<'a, Message, Data> From<Chart<Data>> for Element<'a, Message, iced::Theme, iced::Renderer>
-//where
-//    Data: 'a + IntoIterator<Item = (f32, f32)> + Clone,
-//{
-//    fn from(chart: Chart<Data>) -> Self {
-//        Element::new(chart)
-//    }
-//}
