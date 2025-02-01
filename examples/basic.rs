@@ -39,10 +39,21 @@ impl App {
             Chart::new()
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .series(Series::Line {
-                    color: iced::Color::from_rgba8(255, 0, 0, 0.5).into(),
-                    data: self.data.clone(),
-                }),
+                .series(vec![
+                    Series::Line {
+                        color: iced::Color::from_rgba8(255, 0, 0, 0.5).into(),
+                        data: self.data.clone(),
+                    },
+                    Series::Line {
+                        color: iced::Color::from_rgba8(0, 0, 255, 1.0).into(),
+                        data: self
+                            .data
+                            .iter()
+                            .cloned()
+                            .map(|(x, y)| (x, y * 0.5))
+                            .collect(),
+                    },
+                ]),
         )
         .into()
     }

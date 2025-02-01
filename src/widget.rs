@@ -1,3 +1,4 @@
+use core::f32;
 use std::marker::PhantomData;
 use std::ops::Range;
 
@@ -39,7 +40,7 @@ impl<'a, Data, Message, Theme, Renderer> Chart<'a, Message, Attributes<Data>, Th
 where
     Renderer: geometry::Renderer,
     Attributes<Data>: Program<Message, Theme, Renderer>,
-    Data: IntoIterator<Item = (f32, f32)> + Clone,
+    Data: 'a + IntoIterator<Item = (f32, f32)> + Clone,
 {
     pub fn new() -> Self {
         let program = Attributes::default();
@@ -56,43 +57,40 @@ where
         }
     }
 
-    pub fn series(mut self, series: Series<Data>) -> Self {
-        match &series {
-            Series::Line { color: _, data } => {
-                let x_min = data
-                    .clone()
-                    .into_iter()
-                    .min_by(|(x1, _), (x2, _)| x1.total_cmp(x2))
-                    .map(|(x, _)| x);
+    pub fn series(mut self, series: impl IntoIterator<Item = Series<Data>> + Clone) -> Self {
+        let series: Vec<_> = series.into_iter().collect();
 
-                let x_max = data
-                    .clone()
-                    .into_iter()
-                    .max_by(|(x1, _), (x2, _)| x1.total_cmp(x2))
-                    .map(|(x, _)| x);
-
-                if let (Some(min), Some(max)) = (x_min, x_max) {
-                    self.program.x_range = min..max;
+        let (x_min, x_max, y_min, y_max) = series
+            .iter()
+            .filter_map(|series| {
+                if let Series::Line { data, .. } = series {
+                    Some(data.clone().into_iter())
+                } else {
+                    None
                 }
+            })
+            .flatten()
+            .fold(
+                (
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                ),
+                |(x_min, x_max, y_min, y_max), (cur_x, cur_y)| {
+                    (
+                        x_min.min(cur_x),
+                        x_max.max(cur_x),
+                        y_min.min(cur_y),
+                        y_max.max(cur_y),
+                    )
+                },
+            );
 
-                let y_min = data
-                    .clone()
-                    .into_iter()
-                    .min_by(|(_, y1), (_, y2)| y1.total_cmp(y2))
-                    .map(|(_, y)| y);
-                let y_max = data
-                    .clone()
-                    .into_iter()
-                    .max_by(|(_, y1), (_, y2)| y1.total_cmp(y2))
-                    .map(|(_, y)| y);
+        self.program.x_range = x_min..x_max;
+        self.program.y_range = y_min..y_max;
 
-                if let (Some(min), Some(max)) = (y_min, y_max) {
-                    self.program.y_range = min..max;
-                }
-
-                self.program.series = Some(series);
-            }
-        }
+        self.program.series = series;
 
         self
     }
@@ -289,7 +287,7 @@ where
 {
     x_range: Range<f32>,
     y_range: Range<f32>,
-    series: Option<Series<Data>>,
+    series: Vec<Series<Data>>,
 }
 
 impl<Data> Default for Attributes<Data>
@@ -300,7 +298,7 @@ where
         Self {
             x_range: 0.0..10.0,
             y_range: 0.0..10.0,
-            series: None,
+            series: Vec::new(),
         }
     }
 }
@@ -332,13 +330,6 @@ where
             pos: Pos::default(),
         };
 
-        if let Some(Series::Line { data, color }) = &self.series {
-            let style: ShapeStyle = color.into();
-            chart
-                .draw_series(LineSeries::new(data.clone(), style))
-                .unwrap();
-        }
-
         chart
             .configure_mesh()
             .label_style(label_style)
@@ -347,6 +338,15 @@ where
             //.light_line_style(BLUE.mix(0.1))
             .draw()
             .unwrap();
+
+        for s in &self.series {
+            if let Series::Line { data, color } = s {
+                let style: ShapeStyle = color.into();
+                chart
+                    .draw_series(LineSeries::new(data.clone(), style))
+                    .unwrap();
+            }
+        }
     }
 }
 
