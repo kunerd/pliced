@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
+use std::ops::Range;
 
-use crate::backend::IcedChartBackend;
+use crate::backend::{self, IcedChartBackend};
 use crate::event::{self, Event};
 use crate::program::Program;
 
@@ -9,14 +10,17 @@ use iced::advanced::widget::{tree, Tree};
 use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
-use iced::Vector;
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
+use iced::{Renderer, Vector};
 use plotters::prelude::*;
+use plotters::style::Color as _;
+use plotters_backend::text_anchor::Pos;
+use plotters_backend::BackendColor;
 
 pub type ChartBuilderFn<Renderer = iced::Renderer> =
     Box<dyn for<'a, 'b> Fn(&mut ChartBuilder<'a, 'b, IcedChartBackend<'b, Renderer>>)>;
 
-pub struct ChartWidget<'a, P, Message, Theme = iced::Theme, Renderer = iced::Renderer>
+pub struct Chart<'a, Message, P = Attributes, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
@@ -31,13 +35,73 @@ where
     renderer_: PhantomData<Renderer>,
 }
 
-impl<'a, P, Message, Theme, Renderer> ChartWidget<'a, P, Message, Theme, Renderer>
+impl<'a, Data, Message, Theme, Renderer> Chart<'a, Message, Attributes<Data>, Theme, Renderer>
+where
+    Renderer: geometry::Renderer,
+    Attributes<Data>: Program<Message, Theme, Renderer>,
+    Data: IntoIterator<Item = (f32, f32)> + Clone,
+{
+    pub fn new() -> Self {
+        let program = Attributes::default();
+
+        Self {
+            program,
+            width: Length::Fill,
+            height: Length::Fill,
+            shaping: Default::default(),
+            cache: None,
+            message_: PhantomData,
+            theme_: PhantomData,
+            renderer_: PhantomData,
+        }
+    }
+
+    pub fn data(mut self, series: Series<Data>) -> Self {
+        match &series {
+            Series::Line { color: _, data } => {
+                let x_min = data
+                    .clone()
+                    .into_iter()
+                    .min_by(|(x1, _), (x2, _)| x1.total_cmp(x2))
+                    .map(|(x, _)| x);
+
+                let x_max = data
+                    .clone()
+                    .into_iter()
+                    .max_by(|(x1, _), (x2, _)| x1.total_cmp(x2))
+                    .map(|(x, _)| x);
+
+                if let (Some(min), Some(max)) = (x_min, x_max) {
+                    self.program.x_range = min..max;
+                }
+
+                let y_min = data
+                    .clone()
+                    .into_iter()
+                    .min_by(|(_, y1), (_, y2)| y1.total_cmp(y2))
+                    .map(|(_, y)| y);
+                let y_max = data
+                    .clone()
+                    .into_iter()
+                    .max_by(|(_, y1), (_, y2)| y1.total_cmp(y2))
+                    .map(|(_, y)| y);
+
+                if let (Some(min), Some(max)) = (y_min, y_max) {
+                    self.program.y_range = min..max;
+                }
+            }
+        }
+
+        self
+    }
+}
+
+impl<'a, Message, P, Theme, Renderer> Chart<'a, Message, P, Theme, Renderer>
 where
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
 {
-    /// create a new [`ChartWidget`]
-    pub fn new(program: P) -> Self {
+    pub fn from_program(program: P) -> Self {
         Self {
             program,
             width: Length::Fill,
@@ -75,7 +139,7 @@ where
 }
 
 impl<P, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for ChartWidget<'_, P, Message, Theme, Renderer>
+    for Chart<'_, Message, P, Theme, Renderer>
 where
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
@@ -201,7 +265,7 @@ where
     }
 }
 
-impl<'a, P, Message, Theme, Renderer> From<ChartWidget<'a, P, Message, Theme, Renderer>>
+impl<'a, P, Message, Theme, Renderer> From<Chart<'a, Message, P, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
@@ -210,8 +274,136 @@ where
     P: 'a + Program<Message, Theme, Renderer>,
 {
     fn from(
-        chart: ChartWidget<'a, P, Message, Theme, Renderer>,
+        chart: Chart<'a, Message, P, Theme, Renderer>,
     ) -> Element<'a, Message, Theme, Renderer> {
         Element::new(chart)
     }
 }
+
+#[derive(Clone)]
+pub struct Attributes<Data = Vec<(f32, f32)>>
+where
+    Data: IntoIterator<Item = (f32, f32)> + Clone,
+{
+    x_range: Range<f32>,
+    y_range: Range<f32>,
+    series: Option<Series<Data>>,
+}
+
+impl<Data> Default for Attributes<Data>
+where
+    Data: IntoIterator<Item = (f32, f32)> + Clone,
+{
+    fn default() -> Self {
+        Self {
+            x_range: 0.0..10.0,
+            y_range: 0.0..10.0,
+            series: None,
+        }
+    }
+}
+
+impl<Message, Data> Program<Message> for Attributes<Data>
+where
+    Data: IntoIterator<Item = (f32, f32)> + Clone,
+{
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        chart: &mut ChartBuilder<backend::IcedChartBackend<Renderer>>,
+        theme: &iced::Theme,
+        _bounds: iced::Rectangle,
+        _cursor: mouse::Cursor,
+    ) {
+        let mut chart = chart
+            .x_label_area_size(10)
+            .margin(20)
+            .build_cartesian_2d(self.x_range.clone(), self.y_range.clone())
+            .unwrap();
+
+        let text_color = Color(theme.palette().text);
+        let label_style = TextStyle {
+            font: "sans".into(),
+            color: text_color.into(),
+            pos: Pos::default(),
+        };
+
+        chart
+            .configure_mesh()
+            .label_style(label_style)
+            .x_labels(10)
+            .bold_line_style(GREEN.mix(0.1))
+            .light_line_style(BLUE.mix(0.1))
+            .draw()
+            .unwrap();
+
+        if let Some(Series::Line { data, color }) = &self.series {
+            let style: ShapeStyle = color.into();
+            chart
+                .draw_series(LineSeries::new(data.clone(), style))
+                .unwrap();
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Series<Data>
+where
+    Data: IntoIterator<Item = (f32, f32)> + Clone,
+{
+    Line { color: Color, data: Data },
+}
+
+#[derive(Clone, Copy)]
+pub struct Color(iced::Color);
+
+impl From<iced::Color> for Color {
+    fn from(color: iced::Color) -> Self {
+        Self(color)
+    }
+}
+
+impl From<Color> for plotters::style::RGBAColor {
+    fn from(color: Color) -> Self {
+        let color = color.0.into_rgba8();
+        Self(color[0], color[1], color[2], color[3] as f64 / 256.0)
+    }
+}
+
+impl From<Color> for ShapeStyle {
+    fn from(color: Color) -> Self {
+        ShapeStyle {
+            color: color.into(),
+            filled: true,
+            stroke_width: 2,
+        }
+    }
+}
+
+impl From<&Color> for ShapeStyle {
+    fn from(color: &Color) -> Self {
+        ShapeStyle {
+            color: (*color).into(),
+            filled: true,
+            stroke_width: 2,
+        }
+    }
+}
+
+impl From<Color> for BackendColor {
+    fn from(color: Color) -> Self {
+        let color: plotters::style::RGBAColor = color.into();
+        color.to_backend_color()
+    }
+}
+
+//impl<'a, Message, Data> From<Chart<Data>> for Element<'a, Message, iced::Theme, iced::Renderer>
+//where
+//    Data: 'a + IntoIterator<Item = (f32, f32)> + Clone,
+//{
+//    fn from(chart: Chart<Data>) -> Self {
+//        Element::new(chart)
+//    }
+//}

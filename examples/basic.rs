@@ -1,6 +1,6 @@
 extern crate pliced;
 
-use pliced::Series;
+use pliced::widget::{Chart, Series};
 
 use iced::{widget::container, Element, Length, Task};
 
@@ -36,9 +36,9 @@ impl App {
 
     pub fn view(&self) -> Element<'_, Message> {
         container(
-            pliced::Chart::new()
+            Chart::new()
                 .width(Length::Fill)
-                .heigth(Length::Fill)
+                .height(Length::Fill)
                 .data(Series::Line {
                     color: iced::Color::from_rgba(100.0, 150.0, 0.0, 0.8).into(),
                     data: self.data.clone(),

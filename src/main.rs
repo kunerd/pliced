@@ -1,5 +1,5 @@
 use iced::{Element, Renderer, Task};
-use pliced::widget::ChartWidget;
+use pliced::widget::Chart;
 use plotters::{
     prelude::PathElement,
     series::LineSeries,
@@ -36,7 +36,7 @@ impl App {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        ChartWidget::new(self).into()
+        Chart::from_program(self).into()
     }
 }
 
