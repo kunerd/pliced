@@ -1,6 +1,6 @@
 use core::f32;
 use std::marker::PhantomData;
-use std::ops::Range;
+use std::ops::{Deref, Range, RangeBounds};
 
 use crate::backend::{self, IcedChartBackend};
 use crate::event::{self, Event};
@@ -14,7 +14,7 @@ use iced::widget::text::Shaping;
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use iced::{Renderer, Vector};
 use plotters::prelude::*;
-use plotters::style::Color as _;
+use plotters::style::{Color as _, SizeDesc};
 use plotters_backend::text_anchor::Pos;
 use plotters_backend::BackendColor;
 
@@ -36,11 +36,10 @@ where
     renderer_: PhantomData<Renderer>,
 }
 
-impl<'a, Data, Message, Theme, Renderer> Chart<'a, Message, Attributes<Data>, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> Chart<'a, Message, Attributes, Theme, Renderer>
 where
     Renderer: geometry::Renderer,
-    Attributes<Data>: Program<Message, Theme, Renderer>,
-    Data: 'a + IntoIterator<Item = (f32, f32)> + Clone,
+    Attributes: Program<Message, Theme, Renderer>,
 {
     pub fn new() -> Self {
         let program = Attributes::default();
@@ -57,43 +56,78 @@ where
         }
     }
 
-    pub fn series(mut self, series: impl IntoIterator<Item = Series<Data>> + Clone) -> Self {
-        let series: Vec<_> = series.into_iter().collect();
+    pub fn push_series(mut self, series: impl Into<Series>) -> Self {
+        let series = series.into();
 
-        let (x_min, x_max, y_min, y_max) = series
-            .iter()
-            .filter_map(|series| {
-                if let Series::Line { data, .. } = series {
-                    Some(data.clone().into_iter())
-                } else {
-                    None
-                }
-            })
-            .flatten()
-            .fold(
-                (
-                    f32::INFINITY,
-                    f32::NEG_INFINITY,
-                    f32::INFINITY,
-                    f32::NEG_INFINITY,
-                ),
+        let x_min_cur = self.program.x_range.start.min(f32::INFINITY);
+        let x_max_cur = self.program.x_range.end.max(f32::NEG_INFINITY);
+        let y_min_cur = self.program.y_range.start.min(f32::INFINITY);
+        let y_max_cur = self.program.y_range.end.max(f32::NEG_INFINITY);
+
+        let (x_min, x_max, y_min, y_max) = {
+            let iter = match &series {
+                Series::Line(line_series) => line_series.data.iter(),
+                Series::Point(point_series) => point_series.data.iter(),
+            };
+
+            iter.fold(
+                (x_min_cur, x_max_cur, y_min_cur, y_max_cur),
                 |(x_min, x_max, y_min, y_max), (cur_x, cur_y)| {
                     (
-                        x_min.min(cur_x),
-                        x_max.max(cur_x),
-                        y_min.min(cur_y),
-                        y_max.max(cur_y),
+                        x_min.min(*cur_x),
+                        x_max.max(*cur_x),
+                        y_min.min(*cur_y),
+                        y_max.max(*cur_y),
                     )
                 },
-            );
+            )
+        };
 
         self.program.x_range = x_min..x_max;
         self.program.y_range = y_min..y_max;
 
-        self.program.series = series;
+        self.program.series.push(series);
 
         self
     }
+
+    //pub fn series(mut self, series: impl IntoIterator<Item = Series> + Clone) -> Self {
+    //    let series: Vec<_> = series.into_iter().collect();
+
+    //    let (x_min, x_max, y_min, y_max) = series
+    //        .iter()
+    //        .filter_map(|series| {
+    //            if let Series::Line(series) = series {
+    //                Some(series.data.iter())
+    //            } else {
+    //                None
+    //            }
+    //        })
+    //        .flatten()
+    //        .fold(
+    //            (
+    //                f32::INFINITY,
+    //                f32::NEG_INFINITY,
+    //                f32::INFINITY,
+    //                f32::NEG_INFINITY,
+    //            ),
+    //            |(x_min, x_max, y_min, y_max), (cur_x, cur_y)| {
+    //                (
+    //                    x_min.min(*cur_x),
+    //                    x_max.max(*cur_x),
+    //                    y_min.min(*cur_y),
+    //                    y_max.max(*cur_y),
+    //                )
+    //            },
+    //        );
+
+    //    self.program.x_range = x_min..x_max;
+    //    self.program.y_range = y_min..y_max;
+
+    //    self.program.series = series;
+
+    //    self
+    //}
 }
 
 impl<'a, Message, P, Theme, Renderer> Chart<'a, Message, P, Theme, Renderer>
@@ -281,19 +315,13 @@ where
 }
 
 #[derive(Clone)]
-pub struct Attributes<Data = Vec<(f32, f32)>>
-where
-    Data: IntoIterator<Item = (f32, f32)> + Clone,
-{
+pub struct Attributes {
     x_range: Range<f32>,
     y_range: Range<f32>,
-    series: Vec<Series<Data>>,
+    series: Vec<Series>,
 }
 
-impl<Data> Default for Attributes<Data>
-where
-    Data: IntoIterator<Item = (f32, f32)> + Clone,
-{
+impl Default for Attributes {
     fn default() -> Self {
         Self {
             x_range: 0.0..10.0,
@@ -303,10 +331,7 @@ where
     }
 }
 
-impl<Message, Data> Program<Message> for Attributes<Data>
-where
-    Data: IntoIterator<Item = (f32, f32)> + Clone,
-{
+impl<Message> Program<Message> for Attributes {
     type State = ();
 
     fn draw(
@@ -340,22 +365,103 @@ where
             .unwrap();
 
         for s in &self.series {
-            if let Series::Line { data, color } = s {
-                let style: ShapeStyle = color.into();
-                chart
-                    .draw_series(LineSeries::new(data.clone(), style))
-                    .unwrap();
+            match s {
+                Series::Line(line_series) => {
+                    chart
+                        .draw_series(plotters::series::LineSeries::from(line_series))
+                        .unwrap();
+                }
+                Series::Point(point_series) => {
+                    chart
+                        .draw_series(plotters::series::PointSeries::of_element(
+                            point_series.data.iter().copied(),
+                            5,
+                            ShapeStyle::from(&RED).filled(),
+                            &|coord, size, style| {
+                                EmptyElement::at(coord) + Circle::new((0, 0), size, style)
+                            },
+                        ))
+                        .unwrap();
+                }
             }
         }
     }
 }
 
 #[derive(Clone)]
-pub enum Series<Data>
+enum Series {
+    Line(LineSeries),
+    Point(PointSeries),
+}
+
+#[derive(Clone)]
+pub struct LineSeries {
+    data: Vec<(f32, f32)>,
+    color: Color,
+}
+
+impl LineSeries {
+    pub fn new(iter: impl IntoIterator<Item = (f32, f32)>) -> Self {
+        Self {
+            data: iter.into_iter().collect(),
+            color: Color(iced::Color::BLACK),
+        }
+    }
+
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl From<LineSeries> for Series {
+    fn from(line_series: LineSeries) -> Self {
+        Self::Line(line_series)
+    }
+}
+
+#[derive(Clone)]
+pub struct PointSeries {
+    data: Vec<(f32, f32)>,
+    color: Color,
+}
+
+impl PointSeries {
+    pub fn new(iter: impl IntoIterator<Item = (f32, f32)>) -> Self {
+        Self {
+            data: iter.into_iter().collect(),
+            color: Color(iced::Color::BLACK),
+        }
+    }
+
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl From<PointSeries> for Series {
+    fn from(point_series: PointSeries) -> Self {
+        Self::Point(point_series)
+    }
+}
+
+pub fn line_series(iter: impl IntoIterator<Item = (f32, f32)>) -> LineSeries {
+    LineSeries::new(iter)
+}
+
+pub fn point_series(iter: impl IntoIterator<Item = (f32, f32)>) -> PointSeries {
+    PointSeries::new(iter)
+}
+
+impl<Backend> From<&LineSeries> for plotters::series::LineSeries<Backend, (f32, f32)>
 where
-    Data: IntoIterator<Item = (f32, f32)> + Clone,
+    Backend: plotters::backend::DrawingBackend,
 {
-    Line { color: Color, data: Data },
+    fn from(series: &LineSeries) -> Self {
+        let style: ShapeStyle = series.color.into();
+        Self::new(series.data.clone(), style)
+    }
 }
 
 #[derive(Clone, Copy)]

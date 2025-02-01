@@ -1,6 +1,6 @@
 extern crate pliced;
 
-use pliced::widget::{Chart, Series};
+use pliced::widget::{line_series, point_series, Chart};
 
 use iced::{widget::container, Element, Length, Task};
 
@@ -39,21 +39,17 @@ impl App {
             Chart::new()
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .series(vec![
-                    Series::Line {
-                        color: iced::Color::from_rgba8(255, 0, 0, 0.5).into(),
-                        data: self.data.clone(),
-                    },
-                    Series::Line {
-                        color: iced::Color::from_rgba8(0, 0, 255, 1.0).into(),
-                        data: self
-                            .data
-                            .iter()
-                            .cloned()
-                            .map(|(x, y)| (x, y * 0.5))
-                            .collect(),
-                    },
-                ]),
+                .push_series(
+                    line_series(self.data.iter().copied())
+                        .color(iced::Color::from_rgb8(255, 0, 0).into()),
+                )
+                .push_series(
+                    line_series(self.data.iter().copied().map(|(x, y)| (x, y * 0.5)))
+                        .color(iced::Color::from_rgb8(0, 255, 0).into()),
+                )
+                .push_series(point_series(
+                    self.data.iter().copied().map(|(x, y)| (x + 0.5, y * 2.0)),
+                )),
         )
         .into()
     }
