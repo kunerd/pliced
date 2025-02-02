@@ -59,10 +59,26 @@ where
     pub fn push_series(mut self, series: impl Into<Series>) -> Self {
         let series = series.into();
 
-        let x_min_cur = self.program.x_range.start.min(f32::INFINITY);
-        let x_max_cur = self.program.x_range.end.max(f32::NEG_INFINITY);
-        let y_min_cur = self.program.y_range.start.min(f32::INFINITY);
-        let y_max_cur = self.program.y_range.end.max(f32::NEG_INFINITY);
+        let x_min_cur = self
+            .program
+            .x_range
+            .as_ref()
+            .map_or(f32::INFINITY, |range| range.start);
+        let x_max_cur = self
+            .program
+            .x_range
+            .as_ref()
+            .map_or(f32::NEG_INFINITY, |range| range.end);
+        let y_min_cur = self
+            .program
+            .y_range
+            .as_ref()
+            .map_or(f32::INFINITY, |range| range.start);
+        let y_max_cur = self
+            .program
+            .y_range
+            .as_ref()
+            .map_or(f32::NEG_INFINITY, |range| range.end);
 
         let (x_min, x_max, y_min, y_max) = {
             let iter = match &series {
@@ -83,8 +99,8 @@ where
             )
         };
 
-        self.program.x_range = x_min..x_max;
-        self.program.y_range = y_min..y_max;
+        self.program.x_range = Some(x_min..x_max);
+        self.program.y_range = Some(y_min..y_max);
 
         self.program.series.push(series);
 
@@ -290,21 +306,16 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Attributes {
-    x_range: Range<f32>,
-    y_range: Range<f32>,
+    x_range: Option<Range<f32>>,
+    y_range: Option<Range<f32>>,
     series: Vec<Series>,
 }
 
-impl Default for Attributes {
-    fn default() -> Self {
-        Self {
-            x_range: 0.0..10.0,
-            y_range: 0.0..10.0,
-            series: Vec::new(),
-        }
-    }
+impl Attributes {
+    const X_RANGE_DEFAULT: Range<f32> = 0.0..10.0;
+    const Y_RANGE_DEFAULT: Range<f32> = 0.0..10.0;
 }
 
 impl<Message> Program<Message> for Attributes {
@@ -318,10 +329,22 @@ impl<Message> Program<Message> for Attributes {
         _bounds: iced::Rectangle,
         _cursor: mouse::Cursor,
     ) {
+        let x_range = self
+            .x_range
+            .as_ref()
+            .cloned()
+            .unwrap_or(Attributes::X_RANGE_DEFAULT);
+
+        let y_range = self
+            .y_range
+            .as_ref()
+            .cloned()
+            .unwrap_or(Attributes::Y_RANGE_DEFAULT);
+
         let mut chart = chart
             .x_label_area_size(10)
             .margin(20)
-            .build_cartesian_2d(self.x_range.clone(), self.y_range.clone())
+            .build_cartesian_2d(x_range, y_range)
             .unwrap();
 
         let text_color = Color(theme.palette().text);
