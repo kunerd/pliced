@@ -36,7 +36,7 @@ where
     renderer_: PhantomData<Renderer>,
 }
 
-impl<'a, Message, Theme, Renderer> Chart<'a, Message, Attributes, Theme, Renderer>
+impl<Message, Theme, Renderer> Chart<'_, Message, Attributes, Theme, Renderer>
 where
     Renderer: geometry::Renderer,
     Attributes: Program<Message, Theme, Renderer>,
@@ -262,6 +262,16 @@ where
         let state = tree.state.downcast_ref::<P::State>();
 
         self.program.mouse_interaction(state, bounds, cursor)
+    }
+}
+
+impl<'a, Message, Theme, Renderer> Default for Chart<'a, Message, Attributes, Theme, Renderer>
+where
+    Renderer: 'a + geometry::Renderer,
+    Attributes: Program<Message, Theme, Renderer>,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
 

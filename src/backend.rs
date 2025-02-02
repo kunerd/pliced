@@ -65,7 +65,7 @@ where
     }
 }
 
-impl<'a, Renderer> DrawingBackend for IcedChartBackend<'a, Renderer>
+impl<Renderer> DrawingBackend for IcedChartBackend<'_, Renderer>
 where
     Renderer: geometry::Renderer,
 {
