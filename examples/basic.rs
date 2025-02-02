@@ -9,7 +9,9 @@ fn main() -> Result<(), iced::Error> {
 }
 
 #[derive(Debug, Clone)]
-enum Message {}
+enum Message {
+    MousePressed,
+}
 
 #[derive(Debug, Default)]
 struct App {
@@ -30,7 +32,12 @@ impl App {
         "pliced".to_string()
     }
 
-    pub fn update(&mut self, _msg: Message) -> Task<Message> {
+    pub fn update(&mut self, msg: Message) -> Task<Message> {
+        match msg {
+            Message::MousePressed => {
+                dbg!("Chart pressed");
+            },
+        }
         Task::none()
     }
 
@@ -51,7 +58,8 @@ impl App {
                 )
                 .push_series(point_series(
                     self.data.iter().copied().map(|(x, y)| (x + 0.5, y * 2.0)),
-                )),
+                ))
+                .on_press(Message::MousePressed),
         )
         .into()
     }

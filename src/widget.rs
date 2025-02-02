@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use crate::backend::{self, IcedChartBackend};
-use crate::event::{self, Event};
+use crate::event::{self};
 use crate::program::Program;
 
 use iced::advanced::graphics::geometry;
@@ -12,7 +12,7 @@ use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
-use iced::{Renderer, Vector};
+use iced::{touch, Point, Renderer, Vector};
 use plotters::prelude::*;
 use plotters::style::Color as _;
 use plotters_backend::text_anchor::Pos;
@@ -23,6 +23,7 @@ pub type ChartBuilderFn<Renderer = iced::Renderer> =
 
 pub struct Chart<'a, Message, P = Attributes, Theme = iced::Theme, Renderer = iced::Renderer>
 where
+    Message: Clone,
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
 {
@@ -30,30 +31,32 @@ where
     width: Length,
     height: Length,
     shaping: Shaping,
+    on_press: Option<Message>,
+    on_release: Option<Message>,
+    //on_right_press: Option<Message>,
+    //on_right_release: Option<Message>,
+    //on_middle_press: Option<Message>,
+    //on_middle_release: Option<Message>,
+    //on_scroll: Option<Box<dyn Fn(mouse::ScrollDelta) -> Message + 'a>>,
+    on_enter: Option<Message>,
+    on_move: Option<Box<dyn Fn(Point) -> Message + 'a>>,
+    on_exit: Option<Message>,
+    interaction: Option<mouse::Interaction>,
     cache: Option<&'a geometry::Cache<Renderer>>,
-    message_: PhantomData<Message>,
     theme_: PhantomData<Theme>,
     renderer_: PhantomData<Renderer>,
 }
 
 impl<Message, Theme, Renderer> Chart<'_, Message, Attributes, Theme, Renderer>
 where
+    Message: Clone,
     Renderer: geometry::Renderer,
     Attributes: Program<Message, Theme, Renderer>,
 {
     pub fn new() -> Self {
         let program = Attributes::default();
 
-        Self {
-            program,
-            width: Length::Fill,
-            height: Length::Fill,
-            shaping: Default::default(),
-            cache: None,
-            message_: PhantomData,
-            theme_: PhantomData,
-            renderer_: PhantomData,
-        }
+        Self::from_program(program)
     }
 
     pub fn x_range(mut self, range: Range<f32>) -> Self {
@@ -122,10 +125,16 @@ where
     pub fn extend_series(self, series_list: impl IntoIterator<Item = Series> + Clone) -> Self {
         series_list.into_iter().fold(self, Self::push_series)
     }
+
+    pub fn on_press(mut self, msg: Message) -> Self {
+        self.on_press = Some(msg);
+        self
+    }
 }
 
 impl<'a, Message, P, Theme, Renderer> Chart<'a, Message, P, Theme, Renderer>
 where
+    Message: Clone,
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
 {
@@ -136,7 +145,12 @@ where
             height: Length::Fill,
             shaping: Default::default(),
             cache: None,
-            message_: PhantomData,
+            on_press: None,
+            on_release: None,
+            on_enter: None,
+            on_move: None,
+            on_exit: None,
+            interaction: None,
             theme_: PhantomData,
             renderer_: PhantomData,
         }
@@ -169,6 +183,7 @@ where
 impl<P, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
     for Chart<'_, Message, P, Theme, Renderer>
 where
+    Message: Clone,
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
 {
@@ -176,14 +191,34 @@ where
         Size::new(self.width, self.height)
     }
 
+    //fn tag(&self) -> tree::Tag {
+    //    struct Tag<T>(T);
+    //    tree::Tag::of::<Tag<P::State>>()
+    //}
+
+    //fn state(&self) -> tree::State {
+    //    tree::State::new(P::State::default())
+    //}
     fn tag(&self) -> tree::Tag {
-        struct Tag<T>(T);
-        tree::Tag::of::<Tag<P::State>>()
+        tree::Tag::of::<State>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(P::State::default())
+        tree::State::new(State::default())
     }
+
+    fn children(&self) -> Vec<Tree> {
+        struct Tag<T>(T);
+        vec![Tree {
+            tag: tree::Tag::of::<Tag<P::State>>(),
+            state: tree::State::new(P::State::default()),
+            children: vec![],
+        }]
+    }
+
+    //fn diff(&self, tree: &mut Tree) {
+    //    tree.diff_children(std::slice::from_ref(&self.program));
+    //}
 
     #[inline]
     fn layout(
@@ -212,7 +247,7 @@ where
             return;
         }
 
-        let state = tree.state.downcast_ref::<P::State>();
+        let state = tree.children[0].state.downcast_ref::<P::State>();
 
         let geometry = if let Some(cache) = &self.cache {
             cache.draw(renderer, bounds.size(), |frame| {
@@ -254,26 +289,42 @@ where
         shell: &mut Shell<'_, Message>,
         _rectangle: &Rectangle,
     ) -> event::Status {
+        let state: &mut State = tree.state.downcast_mut();
+
+        let cursor_position = cursor.position();
         let bounds = layout.bounds();
 
-        let chart_event = match event {
-            iced::Event::Mouse(mouse_event) => Some(Event::Mouse(mouse_event)),
-            iced::Event::Touch(touch_event) => Some(Event::Touch(touch_event)),
-            iced::Event::Keyboard(keyboard_event) => Some(Event::Keyboard(keyboard_event)),
-            iced::Event::Window(_) => None,
-        };
+        if state.cursor_position != cursor_position || state.bounds != bounds {
+            if let Some(message) = self.on_press.as_ref() {
+                if let iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+                | iced::Event::Touch(touch::Event::FingerPressed { .. }) = event
+                {
+                    shell.publish(message.clone());
 
-        if let Some(chart_event) = chart_event {
-            let state = tree.state.downcast_mut::<P::State>();
-
-            let (event_status, message) = self.program.update(state, chart_event, bounds, cursor);
-
-            if let Some(message) = message {
-                shell.publish(message);
+                    return event::Status::Captured;
+                }
             }
-
-            return event_status;
         }
+        //let bounds = layout.bounds();
+
+        //let chart_event = match event {
+        //    iced::Event::Mouse(mouse_event) => Some(Event::Mouse(mouse_event)),
+        //    iced::Event::Touch(touch_event) => Some(Event::Touch(touch_event)),
+        //    iced::Event::Keyboard(keyboard_event) => Some(Event::Keyboard(keyboard_event)),
+        //    iced::Event::Window(_) => None,
+        //};
+
+        //if let Some(chart_event) = chart_event {
+        //    let state = tree.state.downcast_mut::<P::State>();
+
+        //    let (event_status, message) = self.program.update(state, chart_event, bounds, cursor);
+
+        //    if let Some(message) = message {
+        //        shell.publish(message);
+        //    }
+
+        //    return event_status;
+        //}
 
         event::Status::Ignored
     }
@@ -287,14 +338,23 @@ where
         _renderer: &Renderer,
     ) -> mouse::Interaction {
         let bounds = layout.bounds();
-        let state = tree.state.downcast_ref::<P::State>();
+        let state = tree.children[0].state.downcast_ref::<P::State>();
 
         self.program.mouse_interaction(state, bounds, cursor)
     }
 }
 
+/// Local state of the [`Chart`].
+#[derive(Default)]
+struct State {
+    is_hovered: bool,
+    bounds: Rectangle,
+    cursor_position: Option<Point>,
+}
+
 impl<'a, Message, Theme, Renderer> Default for Chart<'a, Message, Attributes, Theme, Renderer>
 where
+    Message: Clone,
     Renderer: 'a + geometry::Renderer,
     Attributes: Program<Message, Theme, Renderer>,
 {
@@ -306,7 +366,7 @@ where
 impl<'a, P, Message, Theme, Renderer> From<Chart<'a, Message, P, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
-    Message: 'a,
+    Message: 'a + Clone,
     Theme: 'a,
     Renderer: 'a + geometry::Renderer,
     P: 'a + Program<Message, Theme, Renderer>,
