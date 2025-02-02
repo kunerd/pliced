@@ -56,6 +56,18 @@ where
         }
     }
 
+    pub fn x_range(mut self, range: Range<f32>) -> Self {
+        self.program.x_range = Some(range);
+
+        self
+    }
+
+    pub fn y_range(mut self, range: Range<f32>) -> Self {
+        self.program.y_range = Some(range);
+
+        self
+    }
+
     pub fn push_series(mut self, series: impl Into<Series>) -> Self {
         let series = series.into();
 
