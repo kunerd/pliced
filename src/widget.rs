@@ -1,6 +1,6 @@
 use core::f32;
 use std::marker::PhantomData;
-use std::ops::{Deref, Range, RangeBounds};
+use std::ops::Range;
 
 use crate::backend::{self, IcedChartBackend};
 use crate::event::{self, Event};
@@ -14,7 +14,7 @@ use iced::widget::text::Shaping;
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use iced::{Renderer, Vector};
 use plotters::prelude::*;
-use plotters::style::{Color as _, SizeDesc};
+use plotters::style::Color as _;
 use plotters_backend::text_anchor::Pos;
 use plotters_backend::BackendColor;
 
@@ -91,43 +91,9 @@ where
         self
     }
 
-    //pub fn series(mut self, series: impl IntoIterator<Item = Series> + Clone) -> Self {
-    //    let series: Vec<_> = series.into_iter().collect();
-
-    //    let (x_min, x_max, y_min, y_max) = series
-    //        .iter()
-    //        .filter_map(|series| {
-    //            if let Series::Line(series) = series {
-    //                Some(series.data.iter())
-    //            } else {
-    //                None
-    //            }
-    //        })
-    //        .flatten()
-    //        .fold(
-    //            (
-    //                f32::INFINITY,
-    //                f32::NEG_INFINITY,
-    //                f32::INFINITY,
-    //                f32::NEG_INFINITY,
-    //            ),
-    //            |(x_min, x_max, y_min, y_max), (cur_x, cur_y)| {
-    //                (
-    //                    x_min.min(*cur_x),
-    //                    x_max.max(*cur_x),
-    //                    y_min.min(*cur_y),
-    //                    y_max.max(*cur_y),
-    //                )
-    //            },
-    //        );
-
-    //    self.program.x_range = x_min..x_max;
-    //    self.program.y_range = y_min..y_max;
-
-    //    self.program.series = series;
-
-    //    self
-    //}
+    pub fn extend_series(self, series_list: impl IntoIterator<Item = Series> + Clone) -> Self {
+        series_list.into_iter().fold(self, Self::push_series)
+    }
 }
 
 impl<'a, Message, P, Theme, Renderer> Chart<'a, Message, P, Theme, Renderer>
@@ -389,7 +355,7 @@ impl<Message> Program<Message> for Attributes {
 }
 
 #[derive(Clone)]
-enum Series {
+pub enum Series {
     Line(LineSeries),
     Point(PointSeries),
 }
