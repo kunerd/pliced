@@ -122,7 +122,7 @@ where
         self
     }
 
-    pub fn extend_series(self, series_list: impl IntoIterator<Item = Series> + Clone) -> Self {
+    pub fn extend_series(self, series_list: impl IntoIterator<Item = impl Into<Series>> + Clone) -> Self {
         series_list.into_iter().fold(self, Self::push_series)
     }
 
