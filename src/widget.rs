@@ -493,8 +493,8 @@ impl LineSeries {
         }
     }
 
-    pub fn color(mut self, color: Color) -> Self {
-        self.color = color;
+    pub fn color(mut self, color: impl Into<Color>) -> Self {
+        self.color = color.into();
         self
     }
 }
@@ -519,8 +519,8 @@ impl PointSeries {
         }
     }
 
-    pub fn color(mut self, color: Color) -> Self {
-        self.color = color;
+    pub fn color(mut self, color: impl Into<Color>) -> Self {
+        self.color = color.into();
         self
     }
 }
