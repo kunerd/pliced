@@ -50,11 +50,11 @@ impl App {
                 .y_range(-1.0..2.0)
                 .push_series(
                     line_series(self.data.iter().copied())
-                        .color(iced::Color::from_rgb8(255, 0, 0).into()),
+                        .color(iced::Color::from_rgb8(255, 0, 0)),
                 )
                 .push_series(
                     line_series(self.data.iter().copied().map(|(x, y)| (x, y * 0.5)))
-                        .color(iced::Color::from_rgb8(0, 255, 0).into()),
+                        .color(iced::Color::from_rgb8(0, 255, 0)),
                 )
                 .push_series(point_series(
                     self.data.iter().copied().map(|(x, y)| (x + 0.5, y * 2.0)),
