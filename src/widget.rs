@@ -60,13 +60,13 @@ where
     }
 
     pub fn x_range(mut self, range: Range<f32>) -> Self {
-        self.program.x_range = Some(range);
+        self.program.x_range = AxisRange::Custom(range);
 
         self
     }
 
     pub fn y_range(mut self, range: Range<f32>) -> Self {
-        self.program.y_range = Some(range);
+        self.program.y_range = AxisRange::Custom(range);
 
         self
     }
@@ -74,55 +74,55 @@ where
     pub fn push_series(mut self, series: impl Into<Series>) -> Self {
         let series = series.into();
 
-        let x_min_cur = self
-            .program
-            .x_range
-            .as_ref()
-            .map_or(f32::INFINITY, |range| range.start);
-        let x_max_cur = self
-            .program
-            .x_range
-            .as_ref()
-            .map_or(f32::NEG_INFINITY, |range| range.end);
-        let y_min_cur = self
-            .program
-            .y_range
-            .as_ref()
-            .map_or(f32::INFINITY, |range| range.start);
-        let y_max_cur = self
-            .program
-            .y_range
-            .as_ref()
-            .map_or(f32::NEG_INFINITY, |range| range.end);
+        if let AxisRange::Automatic(x_range) = self.program.x_range {
+            let x_min_cur = x_range.as_ref().map_or(f32::INFINITY, |range| range.start);
+            let x_max_cur = x_range
+                .as_ref()
+                .map_or(f32::NEG_INFINITY, |range| range.end);
 
-        let (x_min, x_max, y_min, y_max) = {
-            let iter = match &series {
-                Series::Line(line_series) => line_series.data.iter(),
-                Series::Point(point_series) => point_series.data.iter(),
+            let (x_min, x_max) = {
+                let iter = match &series {
+                    Series::Line(line_series) => line_series.data.iter(),
+                    Series::Point(point_series) => point_series.data.iter(),
+                };
+
+                iter.fold((x_min_cur, x_max_cur), |(x_min, x_max), (cur_x, _)| {
+                    (x_min.min(*cur_x), x_max.max(*cur_x))
+                })
             };
 
-            iter.fold(
-                (x_min_cur, x_max_cur, y_min_cur, y_max_cur),
-                |(x_min, x_max, y_min, y_max), (cur_x, cur_y)| {
-                    (
-                        x_min.min(*cur_x),
-                        x_max.max(*cur_x),
-                        y_min.min(*cur_y),
-                        y_max.max(*cur_y),
-                    )
-                },
-            )
-        };
+            self.program.x_range = AxisRange::Automatic(Some(x_min..x_max));
+        }
 
-        self.program.x_range = Some(x_min..x_max);
-        self.program.y_range = Some(y_min..y_max);
+        if let AxisRange::Automatic(y_range) = self.program.y_range {
+            let y_min_cur = y_range.as_ref().map_or(f32::INFINITY, |range| range.start);
+            let y_max_cur = y_range
+                .as_ref()
+                .map_or(f32::NEG_INFINITY, |range| range.end);
+
+            let (y_min, y_max) = {
+                let iter = match &series {
+                    Series::Line(line_series) => line_series.data.iter(),
+                    Series::Point(point_series) => point_series.data.iter(),
+                };
+
+                iter.fold((y_min_cur, y_max_cur), |(y_min, y_max), (_, cur_y)| {
+                    (y_min.min(*cur_y), y_max.max(*cur_y))
+                })
+            };
+
+            self.program.y_range = AxisRange::Automatic(Some(y_min..y_max));
+        }
 
         self.program.series.push(series);
 
         self
     }
 
-    pub fn extend_series(self, series_list: impl IntoIterator<Item = impl Into<Series>> + Clone) -> Self {
+    pub fn extend_series(
+        self,
+        series_list: impl IntoIterator<Item = impl Into<Series>> + Clone,
+    ) -> Self {
         series_list.into_iter().fold(self, Self::push_series)
     }
 
@@ -380,9 +380,23 @@ where
 
 #[derive(Clone, Default)]
 pub struct Attributes {
-    x_range: Option<Range<f32>>,
-    y_range: Option<Range<f32>>,
+    //x_range: Option<Range<f32>>,
+    //y_range: Option<Range<f32>>,
+    x_range: AxisRange<Range<f32>>,
+    y_range: AxisRange<Range<f32>>,
     series: Vec<Series>,
+}
+
+#[derive(Clone)]
+pub enum AxisRange<T> {
+    Custom(T),
+    Automatic(Option<T>),
+}
+
+impl<T> Default for AxisRange<T> {
+    fn default() -> Self {
+        Self::Automatic(None)
+    }
 }
 
 impl Attributes {
@@ -401,17 +415,17 @@ impl<Message> Program<Message> for Attributes {
         _bounds: iced::Rectangle,
         _cursor: mouse::Cursor,
     ) {
-        let x_range = self
-            .x_range
-            .as_ref()
-            .cloned()
-            .unwrap_or(Attributes::X_RANGE_DEFAULT);
+        let x_range = match self.x_range.clone() {
+            AxisRange::Custom(x_range) => x_range,
+            AxisRange::Automatic(Some(x_range)) => x_range,
+            AxisRange::Automatic(None) => Attributes::X_RANGE_DEFAULT,
+        };
 
-        let y_range = self
-            .y_range
-            .as_ref()
-            .cloned()
-            .unwrap_or(Attributes::Y_RANGE_DEFAULT);
+        let y_range = match self.y_range.clone() {
+            AxisRange::Custom(y_range) => y_range,
+            AxisRange::Automatic(Some(y_range)) => y_range,
+            AxisRange::Automatic(None) => Attributes::Y_RANGE_DEFAULT,
+        };
 
         let mut chart = chart
             .x_label_area_size(10)
