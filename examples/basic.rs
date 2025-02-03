@@ -46,8 +46,8 @@ impl App {
             Chart::new()
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .x_range(-1.0..3.0)
-                .y_range(-1.0..5.0)
+                .x_range(-1.0..0.5)
+                .y_range(-1.0..2.0)
                 .push_series(
                     line_series(self.data.iter().copied())
                         .color(iced::Color::from_rgb8(255, 0, 0).into()),
