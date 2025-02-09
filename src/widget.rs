@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use crate::backend::{self, IcedChartBackend};
+use crate::cartesian::Cartesian;
 use crate::event::{self};
 use crate::program::Program;
 
@@ -138,12 +139,7 @@ where
 
     pub fn on_scroll(
         mut self,
-        msg: impl Fn(
-                iced::Point,
-                mouse::ScrollDelta,
-                Cartesian2d<RangedCoordf32, RangedCoordf32>,
-            ) -> Message
-            + 'a,
+        msg: impl Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a,
     ) -> Self {
         self.program.on_scroll = Some(Box::new(msg));
         self
@@ -391,20 +387,9 @@ pub struct Attributes<'a, Message>
 where
     Message: Clone,
 {
-    //coord_spec: RefCell<Option<Cartesian2d<RangedCoordf32, RangedCoordf32>>>,
-    on_scroll: Option<
-        Box<
-            dyn Fn(
-                    iced::Point,
-                    mouse::ScrollDelta,
-                    Cartesian2d<RangedCoordf32, RangedCoordf32>,
-                ) -> Message
-                + 'a,
-        >,
-    >,
+    on_scroll: Option<Box<dyn Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a>>,
     x_range: AxisRange<Range<f32>>,
     y_range: AxisRange<Range<f32>>,
-    //coord_spec: Cartesian2d<RangedCoordf32, RangedCoordf32>,
     series: Vec<Series>,
 }
 
@@ -550,7 +535,7 @@ where
 
                 return (
                     event::Status::Captured,
-                    Some(on_scroll(point, delta, coord_spec)),
+                    Some(on_scroll(point, delta, Cartesian::new(coord_spec))),
                 );
             }
         }

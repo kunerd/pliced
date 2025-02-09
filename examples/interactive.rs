@@ -2,16 +2,15 @@ extern crate pliced;
 
 use std::{fmt::Debug, ops::Range};
 
-use pliced::widget::{line_series, point_series, Chart};
+use pliced::{
+    cartesian::Cartesian,
+    widget::{line_series, point_series, Chart},
+};
 
 use iced::{
     mouse::ScrollDelta,
     widget::{canvas, container},
     Element, Length, Point, Task,
-};
-use plotters::{
-    coord::{types::RangedCoordf32, ReverseCoordTranslate},
-    prelude::Cartesian2d,
 };
 
 fn main() -> Result<(), iced::Error> {
@@ -21,11 +20,7 @@ fn main() -> Result<(), iced::Error> {
 #[derive(Clone)]
 enum Message {
     MousePressed,
-    MouseWheelScrolled(
-        Point,
-        ScrollDelta,
-        Cartesian2d<RangedCoordf32, RangedCoordf32>,
-    ),
+    MouseWheelScrolled(Point, ScrollDelta, Cartesian),
 }
 
 impl Debug for Message {
@@ -110,21 +105,15 @@ impl App {
         .into()
     }
 
-    fn zoom_in(
-        &mut self,
-        mouse_pos: iced::Point,
-        spec: Cartesian2d<RangedCoordf32, RangedCoordf32>,
-    ) {
-        let cur_pos = spec.reverse_translate((mouse_pos.x as i32, mouse_pos.y as i32));
-
-        let Some((x, ..)) = cur_pos else {
+    fn zoom_in(&mut self, position: iced::Point, cartesian: Cartesian) {
+        let Some(pos) = cartesian.get_coords(position) else {
             return;
         };
 
         let old_viewport = self.x_range.clone();
         let old_len = old_viewport.end - old_viewport.start;
 
-        let center_scale: f32 = (x - old_viewport.start) / old_len;
+        let center_scale: f32 = (pos.x - old_viewport.start) / old_len;
 
         const ZOOM_FACTOR: f32 = 0.8;
         const LOWER_BOUND: f32 = 0.5;
@@ -133,23 +122,21 @@ impl App {
             new_len = LOWER_BOUND;
         }
 
-        let new_start = x - (new_len * center_scale);
+        let new_start = pos.x - (new_len * center_scale);
         let new_end = new_start + new_len;
         self.x_range = new_start..new_end;
         self.cache.clear();
     }
 
-    fn zoom_out(&mut self, p: iced::Point, spec: Cartesian2d<RangedCoordf32, RangedCoordf32>) {
-        let cur_pos = spec.reverse_translate((p.x as i32, p.y as i32));
-
-        let Some((x, ..)) = cur_pos else {
+    fn zoom_out(&mut self, position: iced::Point, cartesian: Cartesian) {
+        let Some(pos) = cartesian.get_coords(position) else {
             return;
         };
 
         let old_viewport = self.x_range.clone();
         let old_len = old_viewport.end - old_viewport.start;
 
-        let center_scale = (x - old_viewport.start) / old_len;
+        let center_scale = (pos.x - old_viewport.start) / old_len;
 
         const ZOOM_FACTOR: f32 = 1.2;
         let mut new_len = old_len * ZOOM_FACTOR;
@@ -157,7 +144,7 @@ impl App {
             new_len = self.data.len() as f32 * 2.0;
         }
 
-        let new_start = x - (new_len * center_scale);
+        let new_start = pos.x - (new_len * center_scale);
         let new_end = new_start + new_len;
         self.x_range = new_start..new_end;
         self.cache.clear();
