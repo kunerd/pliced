@@ -13,6 +13,7 @@ use iced::widget::canvas;
 use iced::widget::text::Shaping;
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use iced::{touch, Point, Renderer, Vector};
+use plotters::coord::types::RangedCoordf32;
 use plotters::prelude::*;
 use plotters::style::Color as _;
 use plotters_backend::text_anchor::Pos;
@@ -21,8 +22,13 @@ use plotters_backend::BackendColor;
 pub type ChartBuilderFn<Renderer = iced::Renderer> =
     Box<dyn for<'a, 'b> Fn(&mut ChartBuilder<'a, 'b, IcedChartBackend<'b, Renderer>>)>;
 
-pub struct Chart<'a, Message, P = Attributes, Theme = iced::Theme, Renderer = iced::Renderer>
-where
+pub struct Chart<
+    'a,
+    Message,
+    P = Attributes<'a, Message>,
+    Theme = iced::Theme,
+    Renderer = iced::Renderer,
+> where
     Message: Clone,
     P: Program<Message, Theme, Renderer>,
     Renderer: geometry::Renderer,
@@ -32,26 +38,25 @@ where
     height: Length,
     shaping: Shaping,
     on_press: Option<Message>,
-    on_release: Option<Message>,
+    //on_release: Option<Message>,
     //on_right_press: Option<Message>,
     //on_right_release: Option<Message>,
     //on_middle_press: Option<Message>,
     //on_middle_release: Option<Message>,
-    //on_scroll: Option<Box<dyn Fn(mouse::ScrollDelta) -> Message + 'a>>,
-    on_enter: Option<Message>,
-    on_move: Option<Box<dyn Fn(Point) -> Message + 'a>>,
-    on_exit: Option<Message>,
-    interaction: Option<mouse::Interaction>,
+    //on_enter: Option<Message>,
+    //on_move: Option<Box<dyn Fn(Point) -> Message + 'a>>,
+    //on_exit: Option<Message>,
+    //interaction: Option<mouse::Interaction>,
     cache: Option<&'a geometry::Cache<Renderer>>,
     theme_: PhantomData<Theme>,
     renderer_: PhantomData<Renderer>,
 }
 
-impl<Message, Theme, Renderer> Chart<'_, Message, Attributes, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> Chart<'_, Message, Attributes<'a, Message>, Theme, Renderer>
 where
     Message: Clone,
     Renderer: geometry::Renderer,
-    Attributes: Program<Message, Theme, Renderer>,
+    Attributes<'a, Message>: Program<Message, Theme, Renderer>,
 {
     pub fn new() -> Self {
         let program = Attributes::default();
@@ -130,6 +135,19 @@ where
         self.on_press = Some(msg);
         self
     }
+
+    pub fn on_scroll(
+        mut self,
+        msg: impl Fn(
+                iced::Point,
+                mouse::ScrollDelta,
+                Cartesian2d<RangedCoordf32, RangedCoordf32>,
+            ) -> Message
+            + 'a,
+    ) -> Self {
+        self.program.on_scroll = Some(Box::new(msg));
+        self
+    }
 }
 
 impl<'a, Message, P, Theme, Renderer> Chart<'a, Message, P, Theme, Renderer>
@@ -146,11 +164,11 @@ where
             shaping: Default::default(),
             cache: None,
             on_press: None,
-            on_release: None,
-            on_enter: None,
-            on_move: None,
-            on_exit: None,
-            interaction: None,
+            //on_release: None,
+            //on_enter: None,
+            //on_move: None,
+            //on_exit: None,
+            //interaction: None,
             theme_: PhantomData,
             renderer_: PhantomData,
         }
@@ -191,14 +209,6 @@ where
         Size::new(self.width, self.height)
     }
 
-    //fn tag(&self) -> tree::Tag {
-    //    struct Tag<T>(T);
-    //    tree::Tag::of::<Tag<P::State>>()
-    //}
-
-    //fn state(&self) -> tree::State {
-    //    tree::State::new(P::State::default())
-    //}
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -215,10 +225,6 @@ where
             children: vec![],
         }]
     }
-
-    //fn diff(&self, tree: &mut Tree) {
-    //    tree.diff_children(std::slice::from_ref(&self.program));
-    //}
 
     #[inline]
     fn layout(
@@ -304,27 +310,29 @@ where
                     return event::Status::Captured;
                 }
             }
+
+            let canvas_event = match event {
+                iced::Event::Mouse(mouse_event) => Some(event::Event::Mouse(mouse_event)),
+                iced::Event::Touch(touch_event) => Some(event::Event::Touch(touch_event)),
+                iced::Event::Keyboard(keyboard_event) => {
+                    Some(event::Event::Keyboard(keyboard_event))
+                }
+                iced::Event::Window(_) => None,
+            };
+
+            if let Some(canvas_event) = canvas_event {
+                let state = tree.children[0].state.downcast_mut::<P::State>();
+
+                let (event_status, message) =
+                    self.program.update(state, canvas_event, bounds, cursor);
+
+                if let Some(message) = message {
+                    shell.publish(message);
+                }
+
+                return event_status;
+            }
         }
-        //let bounds = layout.bounds();
-
-        //let chart_event = match event {
-        //    iced::Event::Mouse(mouse_event) => Some(Event::Mouse(mouse_event)),
-        //    iced::Event::Touch(touch_event) => Some(Event::Touch(touch_event)),
-        //    iced::Event::Keyboard(keyboard_event) => Some(Event::Keyboard(keyboard_event)),
-        //    iced::Event::Window(_) => None,
-        //};
-
-        //if let Some(chart_event) = chart_event {
-        //    let state = tree.state.downcast_mut::<P::State>();
-
-        //    let (event_status, message) = self.program.update(state, chart_event, bounds, cursor);
-
-        //    if let Some(message) = message {
-        //        shell.publish(message);
-        //    }
-
-        //    return event_status;
-        //}
 
         event::Status::Ignored
     }
@@ -347,16 +355,17 @@ where
 /// Local state of the [`Chart`].
 #[derive(Default)]
 struct State {
-    is_hovered: bool,
+    //is_hovered: bool,
     bounds: Rectangle,
     cursor_position: Option<Point>,
 }
 
-impl<'a, Message, Theme, Renderer> Default for Chart<'a, Message, Attributes, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> Default
+    for Chart<'a, Message, Attributes<'a, Message>, Theme, Renderer>
 where
     Message: Clone,
     Renderer: 'a + geometry::Renderer,
-    Attributes: Program<Message, Theme, Renderer>,
+    Attributes<'a, Message>: Program<Message, Theme, Renderer>,
 {
     fn default() -> Self {
         Self::new()
@@ -378,13 +387,39 @@ where
     }
 }
 
-#[derive(Clone, Default)]
-pub struct Attributes {
-    //x_range: Option<Range<f32>>,
-    //y_range: Option<Range<f32>>,
+pub struct Attributes<'a, Message>
+where
+    Message: Clone,
+{
+    //coord_spec: RefCell<Option<Cartesian2d<RangedCoordf32, RangedCoordf32>>>,
+    on_scroll: Option<
+        Box<
+            dyn Fn(
+                    iced::Point,
+                    mouse::ScrollDelta,
+                    Cartesian2d<RangedCoordf32, RangedCoordf32>,
+                ) -> Message
+                + 'a,
+        >,
+    >,
     x_range: AxisRange<Range<f32>>,
     y_range: AxisRange<Range<f32>>,
+    //coord_spec: Cartesian2d<RangedCoordf32, RangedCoordf32>,
     series: Vec<Series>,
+}
+
+impl<Message> Default for Attributes<'_, Message>
+where
+    Message: Clone,
+{
+    fn default() -> Self {
+        Self {
+            on_scroll: Default::default(),
+            x_range: Default::default(),
+            y_range: Default::default(),
+            series: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -399,12 +434,18 @@ impl<T> Default for AxisRange<T> {
     }
 }
 
-impl Attributes {
+impl<Message> Attributes<'_, Message>
+where
+    Message: Clone,
+{
     const X_RANGE_DEFAULT: Range<f32> = 0.0..10.0;
     const Y_RANGE_DEFAULT: Range<f32> = 0.0..10.0;
 }
 
-impl<Message> Program<Message> for Attributes {
+impl<Message> Program<Message> for Attributes<'_, Message>
+where
+    Message: Clone,
+{
     type State = ();
 
     fn draw(
@@ -418,13 +459,13 @@ impl<Message> Program<Message> for Attributes {
         let x_range = match self.x_range.clone() {
             AxisRange::Custom(x_range) => x_range,
             AxisRange::Automatic(Some(x_range)) => x_range,
-            AxisRange::Automatic(None) => Attributes::X_RANGE_DEFAULT,
+            AxisRange::Automatic(None) => Attributes::<Message>::X_RANGE_DEFAULT,
         };
 
         let y_range = match self.y_range.clone() {
             AxisRange::Custom(y_range) => y_range,
             AxisRange::Automatic(Some(y_range)) => y_range,
-            AxisRange::Automatic(None) => Attributes::Y_RANGE_DEFAULT,
+            AxisRange::Automatic(None) => Attributes::<Message>::Y_RANGE_DEFAULT,
         };
 
         let mut chart = chart
@@ -470,6 +511,60 @@ impl<Message> Program<Message> for Attributes {
                 }
             }
         }
+    }
+
+    fn update(
+        &self,
+        _state: &mut Self::State,
+        event: event::Event,
+        bounds: Rectangle,
+        cursor: iced::mouse::Cursor,
+    ) -> (event::Status, Option<Message>) {
+        if let Some(on_scroll) = self.on_scroll.as_ref() {
+            if let (
+                mouse::Cursor::Available(point),
+                event::Event::Mouse(mouse::Event::WheelScrolled { delta }),
+            ) = (cursor, event)
+            {
+                let origin = bounds.position();
+                let point = point - origin;
+                let point = iced::Point::new(point.x, point.y);
+
+                let x_range = match self.x_range.clone() {
+                    AxisRange::Custom(x_range) => x_range,
+                    AxisRange::Automatic(Some(x_range)) => x_range,
+                    AxisRange::Automatic(None) => Attributes::<Message>::X_RANGE_DEFAULT,
+                };
+
+                let y_range = match self.y_range.clone() {
+                    AxisRange::Custom(y_range) => y_range,
+                    AxisRange::Automatic(Some(y_range)) => y_range,
+                    AxisRange::Automatic(None) => Attributes::<Message>::Y_RANGE_DEFAULT,
+                };
+
+                let coord_spec: Cartesian2d<RangedCoordf32, RangedCoordf32> = Cartesian2d::new(
+                    x_range,
+                    y_range,
+                    (0..bounds.width as i32, 0..bounds.height as i32),
+                );
+
+                return (
+                    event::Status::Captured,
+                    Some(on_scroll(point, delta, coord_spec)),
+                );
+            }
+        }
+
+        (event::Status::Ignored, None)
+    }
+
+    fn mouse_interaction(
+        &self,
+        _state: &Self::State,
+        _bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> iced::mouse::Interaction {
+        iced::mouse::Interaction::default()
     }
 }
 
