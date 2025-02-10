@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter};
+
 use plotters::{
     coord::{types::RangedCoordf32, ReverseCoordTranslate},
     prelude::Cartesian2d,
@@ -17,5 +19,11 @@ impl Cartesian {
         let cartesian_position = self.0.reverse_translate(plotters_position);
 
         cartesian_position.map(iced::Point::from)
+    }
+}
+
+impl Debug for Cartesian {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Cartesian").finish()
     }
 }
