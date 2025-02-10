@@ -24,6 +24,12 @@ impl Cartesian {
 
 impl Debug for Cartesian {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Cartesian").finish()
+        let x_range = self.0.get_x_range();
+        let y_range = self.0.get_x_range();
+
+        f.debug_tuple("Cartesian")
+            .field(&x_range)
+            .field(&y_range)
+            .finish()
     }
 }
