@@ -17,23 +17,11 @@ fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view).run_with(App::new)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum Message {
     MousePressed,
     MouseWheelScrolled(Point, ScrollDelta, Cartesian),
-}
-
-impl Debug for Message {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MousePressed => write!(f, "MousePressed"),
-            Self::MouseWheelScrolled(pos, delta, _cartesian) => f
-                .debug_tuple("MouseWheelScrolled")
-                .field(pos)
-                .field(delta)
-                .finish(),
-        }
-    }
+    MouseMoved(Point, Cartesian),
 }
 
 #[derive(Debug, Default)]
@@ -78,6 +66,13 @@ impl App {
                     false => self.zoom_out(pos, coord),
                 }
             }
+            Message::MouseMoved(position, cartesian) => {
+                println!(
+                    "Mouse moved: position {:?}, cartesian: {:?}",
+                    position,
+                    cartesian.get_coords(position)
+                )
+            }
         }
         Task::none()
     }
@@ -100,6 +95,7 @@ impl App {
                     self.data.iter().copied().map(|(x, y)| (x + 0.5, y * 2.0)),
                 ))
                 .on_press(Message::MousePressed)
+                .on_move(Message::MouseMoved)
                 .on_scroll(Message::MouseWheelScrolled),
         )
         .into()

@@ -137,6 +137,11 @@ where
         self
     }
 
+    pub fn on_move(mut self, msg: impl Fn(iced::Point, Cartesian) -> Message + 'a) -> Self {
+        self.program.on_move = Some(Box::new(msg));
+        self
+    }
+
     pub fn on_scroll(
         mut self,
         msg: impl Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a,
@@ -387,10 +392,12 @@ pub struct Attributes<'a, Message>
 where
     Message: Clone,
 {
-    on_scroll: Option<Box<dyn Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a>>,
     x_range: AxisRange<Range<f32>>,
     y_range: AxisRange<Range<f32>>,
     series: Vec<Series>,
+
+    on_move: Option<Box<dyn Fn(iced::Point, Cartesian) -> Message + 'a>>,
+    on_scroll: Option<Box<dyn Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a>>,
 }
 
 impl<Message> Default for Attributes<'_, Message>
@@ -399,10 +406,12 @@ where
 {
     fn default() -> Self {
         Self {
-            on_scroll: Default::default(),
             x_range: Default::default(),
             y_range: Default::default(),
             series: Default::default(),
+
+            on_move: Default::default(),
+            on_scroll: Default::default(),
         }
     }
 }
@@ -505,37 +514,50 @@ where
         bounds: Rectangle,
         cursor: iced::mouse::Cursor,
     ) -> (event::Status, Option<Message>) {
+        let x_range = match self.x_range.clone() {
+            AxisRange::Custom(x_range) => x_range,
+            AxisRange::Automatic(Some(x_range)) => x_range,
+            AxisRange::Automatic(None) => Attributes::<Message>::X_RANGE_DEFAULT,
+        };
+
+        let y_range = match self.y_range.clone() {
+            AxisRange::Custom(y_range) => y_range,
+            AxisRange::Automatic(Some(y_range)) => y_range,
+            AxisRange::Automatic(None) => Attributes::<Message>::Y_RANGE_DEFAULT,
+        };
+
+        let coord_spec: Cartesian2d<RangedCoordf32, RangedCoordf32> = Cartesian2d::new(
+            x_range,
+            y_range,
+            (0..bounds.width as i32, 0..bounds.height as i32),
+        );
+
         if let Some(on_scroll) = self.on_scroll.as_ref() {
-            if let (
-                mouse::Cursor::Available(point),
-                event::Event::Mouse(mouse::Event::WheelScrolled { delta }),
-            ) = (cursor, event)
-            {
+            if let event::Event::Mouse(mouse::Event::WheelScrolled { delta }) = event {
+                let Cursor::Available(position) = cursor else {
+                    return (event::Status::Ignored, None);
+                };
+
                 let origin = bounds.position();
-                let point = point - origin;
-                let point = iced::Point::new(point.x, point.y);
-
-                let x_range = match self.x_range.clone() {
-                    AxisRange::Custom(x_range) => x_range,
-                    AxisRange::Automatic(Some(x_range)) => x_range,
-                    AxisRange::Automatic(None) => Attributes::<Message>::X_RANGE_DEFAULT,
-                };
-
-                let y_range = match self.y_range.clone() {
-                    AxisRange::Custom(y_range) => y_range,
-                    AxisRange::Automatic(Some(y_range)) => y_range,
-                    AxisRange::Automatic(None) => Attributes::<Message>::Y_RANGE_DEFAULT,
-                };
-
-                let coord_spec: Cartesian2d<RangedCoordf32, RangedCoordf32> = Cartesian2d::new(
-                    x_range,
-                    y_range,
-                    (0..bounds.width as i32, 0..bounds.height as i32),
-                );
+                let position = position - origin;
+                let position = iced::Point::new(position.x, position.y);
 
                 return (
                     event::Status::Captured,
-                    Some(on_scroll(point, delta, Cartesian::new(coord_spec))),
+                    Some(on_scroll(position, delta, Cartesian::new(coord_spec))),
+                );
+            }
+        }
+
+        if let Some(on_move) = self.on_move.as_ref() {
+            if let event::Event::Mouse(mouse::Event::CursorMoved { position }) = event {
+                let origin = bounds.position();
+                let position = position - origin;
+                let position = iced::Point::new(position.x, position.y);
+
+                return (
+                    event::Status::Captured,
+                    Some(on_move(position, Cartesian::new(coord_spec))),
                 );
             }
         }
