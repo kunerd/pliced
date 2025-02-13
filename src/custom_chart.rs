@@ -6,22 +6,16 @@ use crate::cartesian::Cartesian;
 use crate::event::{self};
 use crate::widget::Series;
 
-use iced::advanced::graphics::geometry::frame::Backend;
 use iced::advanced::graphics::geometry::Renderer as _;
-use iced::advanced::renderer::Quad;
 use iced::advanced::widget::{tree, Tree};
-use iced::advanced::Renderer as _;
 use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
-use iced::futures::stream::iter;
-use iced::widget::canvas::path::lyon_path::geom::euclid::num::Ceil;
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
-use iced::widget::canvas::path::lyon_path::traits::PathBuilder;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
-use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use iced::{
-    touch, Background, Border, Color, Font, Point, Renderer, Shadow, Transformation, Vector,
+    alignment, touch, Color, Font, Point, Renderer, Vector,
 };
+use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 
 pub struct Chart<'a, Message, Theme = iced::Theme>
 where
@@ -298,14 +292,15 @@ where
                         frame.fill_text(canvas::Text {
                             content: format!("{x}"),
                             size: 12.0.into(),
-                            position: Point { x: x * x_scale - 2.5, y: 5.0 },
+                            // TODO remove magic number,
+                            position: Point {
+                                x: x * x_scale,
+                                y: 8.0,
+                            },
                             color: Color::WHITE,
-                            //horizontal_alignment: if rotate_factor > 0.0 {
-                            //    alignment::Horizontal::Right
-                            //} else {
-                            //    alignment::Horizontal::Left
-                            //},
-                            //vertical_alignment: alignment::Vertical::Bottom,
+                            // TODO edge case center tick
+                            horizontal_alignment: alignment::Horizontal::Center,
+                            vertical_alignment: alignment::Vertical::Top,
                             font: Font::MONOSPACE,
                             ..canvas::Text::default()
                         });
@@ -317,8 +312,8 @@ where
                     draw_x_tick(i as f32 * tick_width);
                 }
 
-                let right = (x_range.end / tick_width).ceil() as i32 + 1;
-                for i in 0..right {
+                let right = (x_range.end / tick_width).ceil() as i32 ;
+                for i in 0..=right {
                     draw_x_tick(i as f32 * tick_width);
                 }
             }
@@ -364,6 +359,24 @@ where
                             .with_width(tick_stroke_width)
                             .with_color(Color::WHITE),
                     );
+                    frame.with_save(|frame| {
+                        frame.scale_nonuniform(Vector::new(1.0 / x_scale, 1.0 / y_scale));
+                        frame.fill_text(canvas::Text {
+                            content: format!("{y}"),
+                            size: 12.0.into(),
+                            // TODO remove magic number,
+                            position: Point {
+                                x: -5.0,
+                                y: -y * y_scale + 2.5,
+                            },
+                            color: Color::WHITE,
+                            // TODO edge case center tick
+                            horizontal_alignment: alignment::Horizontal::Right,
+                            vertical_alignment: alignment::Vertical::Center,
+                            font: Font::MONOSPACE,
+                            ..canvas::Text::default()
+                        })
+                    })
                 };
 
                 let down = (y_range.start / tick_width).floor() as i32;
@@ -372,7 +385,7 @@ where
                 }
 
                 let up = (y_range.end / tick_width).ceil() as i32;
-                for i in 0..up {
+                for i in 1..=up {
                     draw_y_tick(i as f32 * tick_width);
                 }
             }
@@ -428,15 +441,6 @@ where
                 }
             }
         });
-
-        //renderer.fill_quad(
-        //    Quad {
-        //        bounds,
-        //        border: Border::default().width(1),
-        //        shadow: Shadow::default(),
-        //    },
-        //    Background::Color(Color::from_rgba8(0, 125, 125, 0.2)),
-        //);
 
         renderer.draw_geometry(geometry);
     }
