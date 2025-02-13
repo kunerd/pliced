@@ -474,13 +474,12 @@ where
             color: text_color.into(),
             pos: Pos::default(),
         };
-
         chart
             .configure_mesh()
+            //.disable_mesh()
             .label_style(label_style)
-            .x_labels(10)
-            //.bold_line_style(GREEN.mix(0.1))
-            //.light_line_style(BLUE.mix(0.1))
+            .bold_line_style(GREEN.mix(0.1))
+            .light_line_style(BLUE.mix(0.1))
             .draw()
             .unwrap();
 
@@ -583,8 +582,8 @@ pub enum Series {
 
 #[derive(Clone)]
 pub struct LineSeries {
-    data: Vec<(f32, f32)>,
-    color: Color,
+    pub data: Vec<(f32, f32)>,
+    pub color: Color,
 }
 
 impl LineSeries {
@@ -609,8 +608,8 @@ impl From<LineSeries> for Series {
 
 #[derive(Clone)]
 pub struct PointSeries {
-    data: Vec<(f32, f32)>,
-    color: Color,
+    pub data: Vec<(f32, f32)>,
+    pub color: Color,
 }
 
 impl PointSeries {
@@ -652,7 +651,7 @@ where
 }
 
 #[derive(Clone, Copy)]
-pub struct Color(iced::Color);
+pub struct Color(pub iced::Color);
 
 impl From<iced::Color> for Color {
     fn from(color: iced::Color) -> Self {
