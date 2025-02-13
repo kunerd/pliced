@@ -46,7 +46,7 @@ impl App {
                 .width(Length::Fill)
                 .height(Length::Fill)
                 //.x_range(-6.0..-1.0)
-                //.y_range(-5.0..-1.0)
+                //.y_range(-1.0..1.0)
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary))
                 .push_series(
                     line_series(self.data.iter().copied().map(|(x, y)| (x, y * 0.5)))
