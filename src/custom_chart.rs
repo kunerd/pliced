@@ -12,10 +12,10 @@ use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
-use iced::{
-    alignment, touch, Color, Font, Point, Renderer, Vector,
-};
+use iced::{alignment, touch, Color, Font, Point, Renderer, Vector};
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
+
+type StateFn<'a, Message> = Box<dyn Fn(&State) -> Message + 'a>;
 
 pub struct Chart<'a, Message, Theme = iced::Theme>
 where
@@ -30,10 +30,10 @@ where
     series: Vec<Series>,
     cache: canvas::Cache,
 
-    on_move: Option<Box<dyn Fn(iced::Point, Cartesian) -> Message + 'a>>,
+    on_move: Option<StateFn<'a, Message>>,
     on_scroll: Option<Box<dyn Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a>>,
-    on_press: Option<Message>,
-    //on_release: Option<Message>,
+    on_press: Option<StateFn<'a, Message>>,
+    on_release: Option<StateFn<'a, Message>>,
     //on_right_press: Option<Message>,
     //on_right_release: Option<Message>,
     //on_middle_press: Option<Message>,
@@ -64,6 +64,7 @@ where
             on_move: None,
             on_scroll: None,
             on_press: None,
+            on_release: None,
             theme_: PhantomData,
         }
     }
@@ -158,12 +159,17 @@ where
         series_list.into_iter().fold(self, Self::push_series)
     }
 
-    pub fn on_press(mut self, msg: Message) -> Self {
-        self.on_press = Some(msg);
+    pub fn on_press(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
+        self.on_press = Some(Box::new(msg));
         self
     }
 
-    pub fn on_move(mut self, msg: impl Fn(iced::Point, Cartesian) -> Message + 'a) -> Self {
+    pub fn on_release(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
+        self.on_release = Some(Box::new(msg));
+        self
+    }
+
+    pub fn on_move(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
         self.on_move = Some(Box::new(msg));
         self
     }
@@ -200,18 +206,36 @@ where
     #[inline]
     fn layout(
         &self,
-        _tree: &mut Tree,
+        tree: &mut Tree,
         _renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let size = limits.resolve(self.width, self.height, Size::ZERO);
-        layout::Node::new(size)
+        let state = tree.state.downcast_mut::<State>();
+
+        let x_range = match &self.x_range {
+            AxisRange::Custom(range) => range,
+            AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::X_RANGE_DEFAULT),
+        };
+
+        let y_range = match &self.y_range {
+            AxisRange::Custom(range) => range,
+            AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::Y_RANGE_DEFAULT),
+        };
+
+        let node = layout::Node::new(size);
+
+        state.x_range = Some(x_range.clone());
+        state.y_range = Some(y_range.clone());
+        state.bounds = node.bounds();
+
+        node
     }
 
     #[inline]
     fn draw(
         &self,
-        _tree: &Tree,
+        tree: &Tree,
         renderer: &mut Renderer,
         _theme: &Theme,
         _defaults: &renderer::Style,
@@ -224,15 +248,19 @@ where
             return;
         }
 
-        let x_range = match &self.x_range {
-            AxisRange::Custom(range) => range,
-            AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::X_RANGE_DEFAULT),
-        };
+        let state: &State = tree.state.downcast_ref();
+        let x_range = state.x_range.as_ref().unwrap();
+        let y_range = state.y_range.as_ref().unwrap();
 
-        let y_range = match &self.y_range {
-            AxisRange::Custom(range) => range,
-            AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::Y_RANGE_DEFAULT),
-        };
+        //let x_range = match &self.x_range {
+        //    AxisRange::Custom(range) => range,
+        //    AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::X_RANGE_DEFAULT),
+        //};
+
+        //let y_range = match &self.y_range {
+        //    AxisRange::Custom(range) => range,
+        //    AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::Y_RANGE_DEFAULT),
+        //};
 
         let geometry = self.cache.draw(renderer, bounds.size(), |frame| {
             let x_margin = 10f32;
@@ -312,7 +340,7 @@ where
                     draw_x_tick(i as f32 * tick_width);
                 }
 
-                let right = (x_range.end / tick_width).ceil() as i32 ;
+                let right = (x_range.end / tick_width).ceil() as i32;
                 for i in 0..=right {
                     draw_x_tick(i as f32 * tick_width);
                 }
@@ -457,23 +485,48 @@ where
         shell: &mut Shell<'_, Message>,
         _rectangle: &Rectangle,
     ) -> event::Status {
-        let state: &mut State = tree.state.downcast_mut();
+        let Some(cursor_position) = cursor.position() else {
+            return event::Status::Ignored;
+        };
 
-        let cursor_position = cursor.position();
+        let state: &mut State = tree.state.downcast_mut();
+        state.prev_position = state.cursor_position;
+        state.cursor_position = Some(cursor_position);
+
         let bounds = layout.bounds();
 
-        if state.cursor_position != cursor_position || state.bounds != bounds {
+        //if state.cursor_position != cursor_position || state.bounds != bounds {
+        if bounds.contains(cursor_position) {
             if let Some(message) = self.on_press.as_ref() {
                 if let iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
                 | iced::Event::Touch(touch::Event::FingerPressed { .. }) = event
                 {
-                    shell.publish(message.clone());
+                    shell.publish(message(state));
+
+                    return event::Status::Captured;
+                }
+            }
+
+            if let Some(message) = self.on_release.as_ref() {
+                if let iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+                | iced::Event::Touch(touch::Event::FingerLifted { .. }) = event
+                {
+                    shell.publish(message(state));
+
+                    return event::Status::Captured;
+                }
+            }
+
+            if let Some(message) = self.on_move.as_ref() {
+                if let iced::Event::Mouse(mouse::Event::CursorMoved { .. })
+                | iced::Event::Touch(touch::Event::FingerMoved { .. }) = event
+                {
+                    shell.publish(message(state));
 
                     return event::Status::Captured;
                 }
             }
         }
-
         event::Status::Ignored
     }
 
@@ -491,10 +544,57 @@ where
 
 /// Local state of the [`Chart`].
 #[derive(Default)]
-struct State {
+pub struct State {
     //is_hovered: bool,
     bounds: Rectangle,
+    prev_position: Option<Point>,
     cursor_position: Option<Point>,
+    x_range: Option<Range<f32>>,
+    y_range: Option<Range<f32>>,
+}
+
+impl State {
+    pub fn get_cursor_position(&self) -> Option<Point> {
+        self.cursor_position
+    }
+
+    fn get_cartesian(&self, point: Point) -> Option<Point> {
+        let x_margin = 10.0;
+        let y_margin = 20.0;
+
+        let x_range = self.x_range.clone()?;
+        let y_range = self.y_range.clone()?;
+        let bounds = self.bounds;
+
+        let x_axis_length = -x_range.start + x_range.end;
+        let y_axis_length = -y_range.start + y_range.end;
+        let x_scale = (bounds.width - 2.0 * x_margin) / x_axis_length;
+        let y_scale = (bounds.height - 2.0 * y_margin) / y_axis_length;
+
+        let mut point = point * iced::Transformation::translate(-x_margin, -y_margin);
+        point.x *= 1.0 / x_scale;
+        point.y *= 1.0 / y_scale;
+        let mut point = point * iced::Transformation::translate(x_range.start, -y_range.end);
+        point.y = -point.y;
+        Some(point)
+    }
+
+    pub fn get_coords(&self) -> Option<Point> {
+        self.get_cartesian(self.cursor_position?)
+    }
+
+    pub fn get_offset(&self) -> Option<Point> {
+        let cur = self.get_cartesian(self.cursor_position?)?;
+        let x_range = self.x_range.clone()?;
+        let y_range = self.y_range.clone()?;
+        let x_axis_length = -x_range.start + x_range.end;
+        let y_axis_length = -y_range.start + y_range.end;
+
+        Some(Point::new(
+            cur.x - (x_range.start + x_axis_length / 2.0),
+            cur.y - (y_range.start + y_axis_length / 2.0),
+        ))
+    }
 }
 
 impl<'a, Message, Theme> From<Chart<'a, Message, Theme>> for Element<'a, Message, Theme>
