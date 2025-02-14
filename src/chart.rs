@@ -2,9 +2,7 @@ use core::f32;
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use crate::cartesian::Cartesian;
-use crate::event::{self};
-use crate::widget::Series;
+use crate::series::Series;
 
 use iced::advanced::graphics::geometry::Renderer as _;
 use iced::advanced::widget::{tree, Tree};
@@ -12,7 +10,7 @@ use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
-use iced::{alignment, touch, Color, Font, Point, Renderer, Vector};
+use iced::{alignment, event, touch, Color, Font, Point, Renderer, Vector};
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 
 type StateFn<'a, Message> = Box<dyn Fn(&State) -> Message + 'a>;
@@ -31,7 +29,6 @@ where
     cache: canvas::Cache,
 
     on_move: Option<StateFn<'a, Message>>,
-    on_scroll: Option<Box<dyn Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a>>,
     on_press: Option<StateFn<'a, Message>>,
     on_release: Option<StateFn<'a, Message>>,
     //on_right_press: Option<Message>,
@@ -62,7 +59,6 @@ where
             series: Vec::new(),
             cache: canvas::Cache::new(),
             on_move: None,
-            on_scroll: None,
             on_press: None,
             on_release: None,
             theme_: PhantomData,
@@ -171,14 +167,6 @@ where
 
     pub fn on_move(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
         self.on_move = Some(Box::new(msg));
-        self
-    }
-
-    pub fn on_scroll(
-        mut self,
-        msg: impl Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a,
-    ) -> Self {
-        self.on_scroll = Some(Box::new(msg));
         self
     }
 }
@@ -464,7 +452,7 @@ where
                 if let Some((path, color)) = path {
                     frame.stroke(
                         &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-                        Stroke::default().with_width(2.0).with_color(color.0),
+                        Stroke::default().with_width(2.0).with_color(color),
                     );
                 }
             }

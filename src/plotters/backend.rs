@@ -3,15 +3,14 @@
 // Iced backend for Plotters
 // Copyright: 2022, Joylei <leingliu@gmail.com>
 // License: MIT
-
-use std::collections::BTreeSet;
-use std::sync::Mutex;
+use super::utils::{cvt_color, cvt_stroke, CvtPoint};
 
 use iced::advanced::graphics::geometry;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
 use iced::{font, Font, Size};
+
 use plotters_backend::{
     text_anchor,
     //FontTransform,
@@ -25,8 +24,10 @@ use plotters_backend::{
     FontStyle,
 };
 
+use std::collections::BTreeSet;
 use std::error::Error as StdError;
 use std::fmt;
+use std::sync::Mutex;
 
 #[derive(Debug)]
 /// Indicates that some error occurred within the Iced backend
@@ -39,8 +40,6 @@ impl fmt::Display for Error {
 }
 
 impl StdError for Error {}
-
-use crate::utils::{cvt_color, cvt_stroke, CvtPoint};
 
 /// The Iced drawing backend
 pub struct IcedChartBackend<'a, Renderer = iced::Renderer>

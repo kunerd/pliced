@@ -1,8 +1,6 @@
-extern crate pliced;
-
 use std::fmt::Debug;
 
-use pliced::widget::{line_series, point_series, Chart};
+use pliced::plotters::{line_series, point_series, Chart};
 
 use iced::{widget::container, Element, Length, Task};
 

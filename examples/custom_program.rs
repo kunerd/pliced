@@ -1,5 +1,5 @@
 use iced::{Element, Renderer, Task};
-use pliced::widget::Chart;
+use pliced::plotters::{Chart, IcedChartBackend, Program};
 use plotters::{
     prelude::PathElement,
     series::LineSeries,
@@ -40,13 +40,13 @@ impl App {
     }
 }
 
-impl pliced::Program<Message> for App {
+impl Program<Message> for App {
     type State = ();
 
     fn draw(
         &self,
         _state: &Self::State,
-        chart: &mut plotters::prelude::ChartBuilder<pliced::backend::IcedChartBackend<Renderer>>,
+        chart: &mut plotters::prelude::ChartBuilder<IcedChartBackend<Renderer>>,
         _theme: &iced::Theme,
         _bounds: iced::Rectangle,
         _cursor: iced::mouse::Cursor,
