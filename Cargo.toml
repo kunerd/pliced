@@ -7,7 +7,12 @@ edition = "2021"
 name = "pliced"
 
 [dependencies]
-plotters = { version = "0.3" }
-plotters-backend = "0.3"
 iced = { version = "0.13", features = ["canvas","tokio", "advanced"] }
+
+plotters = { version = "0.3", optional = true }
+plotters-backend = { version = "0.3", optional = true }
 once_cell = "1"
+
+[features]
+default = ["plotters"]
+plotters = ["dep:plotters", "dep:plotters-backend"]

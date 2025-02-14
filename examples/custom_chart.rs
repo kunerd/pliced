@@ -1,13 +1,11 @@
 extern crate pliced;
 
-use std::default;
+use pliced::chart::Chart;
+use pliced::series::line_series;
+
+use iced::{widget::container, Element, Length, Task, Theme};
+
 use std::ops::Range;
-
-use iced::{Theme, Vector};
-use pliced::custom_chart::Chart;
-use pliced::widget::{line_series, point_series};
-
-use iced::{widget::container, Element, Length, Task};
 
 fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view)

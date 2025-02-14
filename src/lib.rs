@@ -1,10 +1,5 @@
-mod utils;
+pub mod series;
+pub mod chart;
 
-pub mod backend;
-pub mod widget;
-pub mod cartesian;
-mod program;
-mod event;
-pub mod custom_chart;
-
-pub use program::Program;
+#[cfg(feature = "plotters")]
+pub mod plotters;

@@ -2,10 +2,7 @@ extern crate pliced;
 
 use std::{fmt::Debug, ops::Range};
 
-use pliced::{
-    cartesian::Cartesian,
-    widget::{line_series, point_series, Chart},
-};
+use pliced::plotters::{Cartesian, line_series, point_series, Chart};
 
 use iced::{
     mouse::ScrollDelta,

@@ -1,10 +1,8 @@
-use iced::{advanced::graphics::geometry, mouse, Rectangle};
-use plotters::chart::ChartBuilder;
+use super::{backend::IcedChartBackend, event};
 
-use crate::{
-    backend::IcedChartBackend,
-    event::{self, Event},
-};
+use iced::{advanced::graphics::geometry, mouse, Rectangle};
+
+use plotters::chart::ChartBuilder;
 
 pub trait Program<Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
@@ -27,7 +25,7 @@ where
     fn update(
         &self,
         _state: &mut Self::State,
-        _event: Event,
+        _event: event::Event,
         _bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> (event::Status, Option<Message>) {
@@ -77,7 +75,7 @@ where
     fn update(
         &self,
         state: &mut Self::State,
-        event: Event,
+        event: event::Event,
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> (event::Status, Option<Message>) {
