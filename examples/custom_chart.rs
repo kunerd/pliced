@@ -5,7 +5,7 @@ use pliced::series::line_series;
 
 use iced::{widget::container, Element, Length, Task, Theme};
 
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 
 fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view)
@@ -21,9 +21,9 @@ enum Message {
     MouseUp(Option<iced::Point>),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct App {
-    x_range: Range<f32>,
+    x_range: RangeInclusive<f32>,
     data: Vec<(f32, f32)>,
     dragging: Dragging,
 }
@@ -46,7 +46,7 @@ impl App {
         (
             Self {
                 data,
-                x_range: -1.0..1.0,
+                x_range: -1.0..=1.0,
                 dragging: Dragging::None,
             },
             Task::none(),
@@ -60,8 +60,11 @@ impl App {
     pub fn update(&mut self, msg: Message) -> Task<Message> {
         let mut update_center = |prev_pos: iced::Point, pos: iced::Point| {
             let shift_x = prev_pos.x - pos.x;
-            self.x_range.start += shift_x;
-            self.x_range.end += shift_x;
+
+            let new_start = self.x_range.start() + shift_x;
+            let new_end = self.x_range.end() + shift_x;
+
+            self.x_range = new_start..=new_end;
         };
         match msg {
             Message::MouseDown(pos) => {
