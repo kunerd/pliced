@@ -1,8 +1,6 @@
-use core::f32;
-use std::marker::PhantomData;
-use std::ops::Range;
-
+mod axis;
 use crate::series::Series;
+use core::f32;
 
 use iced::advanced::graphics::geometry::Renderer as _;
 use iced::advanced::widget::{tree, Tree};
@@ -12,6 +10,9 @@ use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
 use iced::{alignment, event, touch, Color, Font, Point, Renderer, Vector};
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
+
+use std::marker::PhantomData;
+use std::ops::RangeInclusive;
 
 type StateFn<'a, Message> = Box<dyn Fn(&State) -> Message + 'a>;
 
@@ -23,8 +24,14 @@ where
     height: Length,
     shaping: Shaping,
 
-    x_range: AxisRange<Range<f32>>,
-    y_range: AxisRange<Range<f32>>,
+    x_axis: Axis,
+    y_axis: Axis,
+
+    x_ticks: Ticks,
+    y_ticks: Ticks,
+
+    x_range: AxisRange<RangeInclusive<f32>>,
+    y_range: AxisRange<RangeInclusive<f32>>,
     series: Vec<Series>,
     cache: canvas::Cache,
 
@@ -46,14 +53,21 @@ impl<'a, Message, Theme> Chart<'a, Message, Theme>
 where
     Message: Clone,
 {
-    const X_RANGE_DEFAULT: Range<f32> = 0.0..10.0;
-    const Y_RANGE_DEFAULT: Range<f32> = 0.0..10.0;
+    const X_RANGE_DEFAULT: RangeInclusive<f32> = 0.0..=10.0;
+    const Y_RANGE_DEFAULT: RangeInclusive<f32> = 0.0..=10.0;
 
     pub fn new() -> Self {
         Self {
             width: Length::Fill,
             height: Length::Fill,
             shaping: Shaping::default(),
+
+            x_axis: Axis::default(),
+            y_axis: Axis::default(),
+
+            x_ticks: Ticks::default(),
+            y_ticks: Ticks::default(),
+
             x_range: AxisRange::default(),
             y_range: AxisRange::default(),
             series: Vec::new(),
@@ -88,13 +102,13 @@ where
     //    self
     //}
 
-    pub fn x_range(mut self, range: Range<f32>) -> Self {
+    pub fn x_range(mut self, range: RangeInclusive<f32>) -> Self {
         self.x_range = AxisRange::Custom(range);
 
         self
     }
 
-    pub fn y_range(mut self, range: Range<f32>) -> Self {
+    pub fn y_range(mut self, range: RangeInclusive<f32>) -> Self {
         self.y_range = AxisRange::Custom(range);
 
         self
@@ -104,10 +118,12 @@ where
         let series = series.into();
 
         if let AxisRange::Automatic(x_range) = self.x_range {
-            let x_min_cur = x_range.as_ref().map_or(f32::INFINITY, |range| range.start);
+            let x_min_cur = x_range
+                .as_ref()
+                .map_or(f32::INFINITY, |range| *range.start());
             let x_max_cur = x_range
                 .as_ref()
-                .map_or(f32::NEG_INFINITY, |range| range.end);
+                .map_or(f32::NEG_INFINITY, |range| *range.end());
 
             let (x_min, x_max) = {
                 let iter = match &series {
@@ -120,14 +136,16 @@ where
                 })
             };
 
-            self.x_range = AxisRange::Automatic(Some(x_min..x_max));
+            self.x_range = AxisRange::Automatic(Some(x_min..=x_max));
         }
 
         if let AxisRange::Automatic(y_range) = self.y_range {
-            let y_min_cur = y_range.as_ref().map_or(f32::INFINITY, |range| range.start);
+            let y_min_cur = y_range
+                .as_ref()
+                .map_or(f32::INFINITY, |range| *range.start());
             let y_max_cur = y_range
                 .as_ref()
-                .map_or(f32::NEG_INFINITY, |range| range.end);
+                .map_or(f32::NEG_INFINITY, |range| *range.end());
 
             let (y_min, y_max) = {
                 let iter = match &series {
@@ -140,7 +158,7 @@ where
                 })
             };
 
-            self.y_range = AxisRange::Automatic(Some(y_min..y_max));
+            self.y_range = AxisRange::Automatic(Some(y_min..=y_max));
         }
 
         self.series.push(series);
@@ -254,54 +272,52 @@ where
             let x_margin = 10f32;
             let y_margin = 20f32;
 
-            let x_axis_length = -x_range.start + x_range.end;
-            let y_axis_length = -y_range.start + y_range.end;
+            let x_axis_length = -x_range.start() + x_range.end();
+            let y_axis_length = -y_range.start() + y_range.end();
             let x_scale = (bounds.width - 2.0 * x_margin) / x_axis_length;
             let y_scale = (bounds.height - 2.0 * y_margin) / y_axis_length;
 
             frame.translate(Vector::new(x_margin, y_margin));
             frame.scale_nonuniform(Vector::new(x_scale, y_scale));
-            frame.translate(Vector::new(-x_range.start, y_range.end));
+            frame.translate(Vector::new(-*x_range.start(), *y_range.end()));
 
             // x axis
             {
                 let x_start = Point {
-                    x: x_range.start,
+                    x: *x_range.start(),
                     y: 0.0,
                 };
                 let x_end = Point {
-                    x: x_range.end,
+                    x: *x_range.end(),
                     y: 0.0,
                 };
 
                 frame.stroke(
                     &Path::line(x_start, x_end),
-                    Stroke::default().with_width(1.0).with_color(Color::WHITE),
+                    Stroke::default()
+                        .with_width(self.x_axis.width)
+                        .with_color(self.x_axis.color),
                 );
 
                 // ticks
-                let ticks = 10usize;
-                let tick_width = x_axis_length / ticks as f32;
+                let tick_width = x_axis_length / self.x_ticks.amount as f32;
 
                 let mut draw_x_tick = |x| {
-                    let tick_length = 5.0;
-                    let tick_stroke_width = 2.0;
-
-                    let half_tick_length = tick_length / 2.0;
+                    let half_tick_height = self.x_ticks.height / 2.0;
                     let x_start = Point {
                         x,
                         //todo tick length
-                        y: -half_tick_length / y_scale,
+                        y: -half_tick_height / y_scale,
                     };
                     let x_end = Point {
                         x,
-                        y: half_tick_length / y_scale,
+                        y: half_tick_height / y_scale,
                     };
                     frame.stroke(
                         &Path::line(x_start, x_end),
                         Stroke::default()
-                            .with_width(tick_stroke_width)
-                            .with_color(Color::WHITE),
+                            .with_width(self.x_ticks.width)
+                            .with_color(self.x_ticks.color),
                     );
                     frame.with_save(|frame| {
                         frame.scale_nonuniform(Vector::new(1.0 / x_scale, 1.0 / y_scale));
@@ -323,12 +339,12 @@ where
                     })
                 };
 
-                let left = (x_range.start / tick_width).floor() as i32;
+                let left = (x_range.start() / tick_width).floor() as i32;
                 for i in left..0 {
                     draw_x_tick(i as f32 * tick_width);
                 }
 
-                let right = (x_range.end / tick_width).ceil() as i32;
+                let right = (x_range.end() / tick_width).ceil() as i32;
                 for i in 0..=right {
                     draw_x_tick(i as f32 * tick_width);
                 }
@@ -338,16 +354,18 @@ where
             {
                 let y_start = Point {
                     x: 0.0,
-                    y: y_range.start,
+                    y: *y_range.start(),
                 };
                 let y_end = Point {
                     x: 0.0,
-                    y: y_range.end,
+                    y: *y_range.end(),
                 };
                 frame.stroke(
                     &Path::line(y_start, y_end)
                         .transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-                    Stroke::default().with_width(1.0).with_color(Color::WHITE),
+                    Stroke::default()
+                        .with_width(self.y_axis.width)
+                        .with_color(self.y_axis.color),
                 );
 
                 // ticks
@@ -355,25 +373,21 @@ where
                 let tick_width = y_axis_length / ticks as f32;
 
                 let mut draw_y_tick = |y| {
-                    let tick_length = 5.0;
-                    let tick_stroke_width = 2.0;
-
-                    let half_tick_length = tick_length / 2.0;
+                    let half_tick_height = self.y_ticks.height / 2.0;
                     let start = Point {
-                        x: -half_tick_length / x_scale,
-                        //todo tick length
+                        x: -half_tick_height / x_scale,
                         y,
                     };
                     let end = Point {
-                        x: half_tick_length / x_scale,
+                        x: half_tick_height / x_scale,
                         y,
                     };
                     frame.stroke(
                         &Path::line(start, end)
                             .transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
                         Stroke::default()
-                            .with_width(tick_stroke_width)
-                            .with_color(Color::WHITE),
+                            .with_width(self.y_ticks.width)
+                            .with_color(self.y_ticks.color),
                     );
                     frame.with_save(|frame| {
                         frame.scale_nonuniform(Vector::new(1.0 / x_scale, 1.0 / y_scale));
@@ -395,12 +409,12 @@ where
                     })
                 };
 
-                let down = (y_range.start / tick_width).floor() as i32;
+                let down = (y_range.start() / tick_width).floor() as i32;
                 for i in down..0 {
                     draw_y_tick(i as f32 * tick_width);
                 }
 
-                let up = (y_range.end / tick_width).ceil() as i32;
+                let up = (y_range.end() / tick_width).ceil() as i32;
                 for i in 1..=up {
                     draw_y_tick(i as f32 * tick_width);
                 }
@@ -537,8 +551,8 @@ pub struct State {
     bounds: Rectangle,
     prev_position: Option<Point>,
     cursor_position: Option<Point>,
-    x_range: Option<Range<f32>>,
-    y_range: Option<Range<f32>>,
+    x_range: Option<RangeInclusive<f32>>,
+    y_range: Option<RangeInclusive<f32>>,
 }
 
 impl State {
@@ -554,15 +568,15 @@ impl State {
         let y_range = self.y_range.clone()?;
         let bounds = self.bounds;
 
-        let x_axis_length = -x_range.start + x_range.end;
-        let y_axis_length = -y_range.start + y_range.end;
+        let x_axis_length = -x_range.start() + x_range.end();
+        let y_axis_length = -y_range.start() + y_range.end();
         let x_scale = (bounds.width - 2.0 * x_margin) / x_axis_length;
         let y_scale = (bounds.height - 2.0 * y_margin) / y_axis_length;
 
         let mut point = point * iced::Transformation::translate(-x_margin, -y_margin);
         point.x *= 1.0 / x_scale;
         point.y *= 1.0 / y_scale;
-        let mut point = point * iced::Transformation::translate(x_range.start, -y_range.end);
+        let mut point = point * iced::Transformation::translate(*x_range.start(), -*y_range.end());
         point.y = -point.y;
         Some(point)
     }
@@ -575,12 +589,12 @@ impl State {
         let cur = self.get_cartesian(self.cursor_position?)?;
         let x_range = self.x_range.clone()?;
         let y_range = self.y_range.clone()?;
-        let x_axis_length = -x_range.start + x_range.end;
-        let y_axis_length = -y_range.start + y_range.end;
+        let x_axis_length = -x_range.start() + x_range.end();
+        let y_axis_length = -y_range.start() + y_range.end();
 
         Some(Point::new(
-            cur.x - (x_range.start + x_axis_length / 2.0),
-            cur.y - (y_range.start + y_axis_length / 2.0),
+            cur.x - (x_range.start() + x_axis_length / 2.0),
+            cur.y - (y_range.start() + y_axis_length / 2.0),
         ))
     }
 }
@@ -604,5 +618,45 @@ pub enum AxisRange<T> {
 impl<T> Default for AxisRange<T> {
     fn default() -> Self {
         Self::Automatic(None)
+    }
+}
+
+pub struct Ticks {
+    color: iced::Color,
+    height: f32,
+    width: f32,
+    amount: usize,
+    //flip
+    //noGrid
+    //ints
+    //times
+    //limits: RangeInclusive<T>
+}
+
+impl Default for Ticks {
+    fn default() -> Self {
+        Self {
+            // use color from theme
+            color: iced::Color::WHITE,
+            height: 5.0,
+            width: 1.0,
+            amount: 10,
+        }
+    }
+}
+
+pub struct Axis {
+    color: iced::Color,
+    width: f32,
+    // TODO limits
+}
+
+impl Default for Axis {
+    fn default() -> Self {
+        Self {
+            // use color from theme
+            color: iced::Color::WHITE,
+            width: 1.0,
+        }
     }
 }
