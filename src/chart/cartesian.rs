@@ -9,14 +9,14 @@ impl Plane {
     pub fn bottom_center(&self) -> iced::Point {
         iced::Point {
             x: 0.0,
-            y: self.y.min
+            y: self.y.min,
         }
     }
 
     pub fn top_center(&self) -> iced::Point {
         iced::Point {
             x: 0.0,
-            y: self.y.max
+            y: self.y.max,
         }
     }
 
@@ -35,7 +35,10 @@ impl Plane {
     }
 
     pub fn get_cartesian(&self, pos: iced::Point) -> iced::Point {
-        let mut point = pos * iced::Transformation::translate(-self.x.margin, -self.y.margin);
+        let x_margin = self.x.margin_min + self.x.margin_max;
+        let y_margin = self.y.margin_min + self.y.margin_max;
+
+        let mut point = pos * iced::Transformation::translate(-x_margin, -y_margin);
         point.x /= self.x.scale;
         point.y /= self.y.scale;
         let mut point = point * iced::Transformation::translate(self.x.min, -self.y.max);
@@ -52,21 +55,22 @@ impl Plane {
             pos.y - (self.y.min + self.y.length / 2.0),
         )
     }
-
 }
 
 pub struct Axis {
     pub length: f32,
     pub scale: f32,
-    pub margin: f32,
+    pub margin_min: f32,
+    pub margin_max: f32,
     pub min: f32,
     pub max: f32,
 }
 
 impl Axis {
-    pub fn new(range: &RangeInclusive<f32>, margin: f32, width: f32) -> Self {
+    pub fn new(range: &RangeInclusive<f32>, margin_min: f32, margin_max: f32, width: f32) -> Self {
         let length = -range.start() + range.end();
-        let scale = (width - 2.0 * margin) / length;
+        let margin = margin(margin_min, margin_max);
+        let scale = (width - margin) / length;
 
         let min = *range.start();
         let max = *range.end();
@@ -74,11 +78,16 @@ impl Axis {
         Self {
             length,
             scale,
-            margin,
+            margin_min,
+            margin_max,
             min,
             max,
         }
     }
+}
+
+fn margin(min: f32, max: f32) -> f32 {
+    min + max
 }
 
 //#[cfg(test)]

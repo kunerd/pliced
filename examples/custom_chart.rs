@@ -1,6 +1,6 @@
 extern crate pliced;
 
-use pliced::chart::Chart;
+use pliced::chart::{Chart, Margin};
 use pliced::series::line_series;
 
 use iced::{widget::container, Element, Length, Task, Theme};
@@ -124,6 +124,12 @@ impl App {
             Chart::new()
                 .width(Length::Fill)
                 .height(Length::Fill)
+                .margin(Margin {
+                    top: 5.0,
+                    bottom: 20.0,
+                    left: 5.0,
+                    right: 15.0,
+                })
                 .x_range(self.x_range.clone())
                 //.y_range(-1.0..1.0)
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary))
