@@ -5,6 +5,7 @@ use core::f32;
 
 use cartesian::Plane;
 use iced::advanced::graphics::geometry::Renderer as _;
+use iced::advanced::text::Renderer as _;
 use iced::advanced::widget::{tree, Tree};
 use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
@@ -26,6 +27,8 @@ where
     width: Length,
     height: Length,
     shaping: Shaping,
+
+    margin: Margin,
 
     x_axis: Axis,
     y_axis: Axis,
@@ -69,6 +72,8 @@ where
             height: Length::Fill,
             shaping: Shaping::default(),
 
+            margin: Margin::default(),
+
             x_axis: Axis::default(),
             y_axis: Axis::default(),
 
@@ -108,51 +113,48 @@ where
         self
     }
 
+    pub fn margin(mut self, margin: Margin) -> Self {
+        self.margin = margin;
+        self
+    }
+
     pub fn x_range(mut self, range: RangeInclusive<f32>) -> Self {
         self.x_range = AxisRange::Custom(range);
-
         self
     }
 
     pub fn y_range(mut self, range: RangeInclusive<f32>) -> Self {
         self.y_range = AxisRange::Custom(range);
-
         self
     }
 
     pub fn x_axis(mut self, axis: Axis) -> Self {
         self.x_axis = axis;
-
         self
     }
 
     pub fn y_axis(mut self, axis: Axis) -> Self {
         self.y_axis = axis;
-
         self
     }
 
     pub fn x_ticks(mut self, ticks: Ticks) -> Self {
         self.x_ticks = ticks;
-
         self
     }
 
     pub fn y_ticks(mut self, ticks: Ticks) -> Self {
         self.y_ticks = ticks;
-
         self
     }
 
     pub fn x_labels(mut self, labels: Labels) -> Self {
         self.x_labels = labels;
-
         self
     }
 
     pub fn y_labels(mut self, labels: Labels) -> Self {
         self.y_labels = labels;
-
         self
     }
 
@@ -375,7 +377,7 @@ where
     fn layout(
         &self,
         tree: &mut Tree,
-        _renderer: &Renderer,
+        renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let size = limits.resolve(self.width, self.height, Size::ZERO);
@@ -394,13 +396,20 @@ where
         let node = layout::Node::new(size);
         let bounds = node.bounds();
 
-        // TODO make configurable
-        let x_margin = 10.0;
-        let y_margin = 10.0;
+        let font_size: f32 = self
+            .x_labels
+            .font_size
+            .unwrap_or_else(|| renderer.default_size())
+            .into();
+
+        let x_margin_min = self.margin.left;
+        let x_margin_max = self.margin.right;
+        let y_margin_min = self.margin.bottom + font_size;
+        let y_margin_max = self.margin.top;
 
         let plane = Plane {
-            x: cartesian::Axis::new(x_range, x_margin, bounds.width),
-            y: cartesian::Axis::new(y_range, y_margin, bounds.height),
+            x: cartesian::Axis::new(x_range, x_margin_min, x_margin_max, bounds.width),
+            y: cartesian::Axis::new(y_range, y_margin_min, y_margin_max, bounds.height),
         };
 
         state.plane = Some(plane);
@@ -430,7 +439,7 @@ where
         };
 
         let geometry = self.cache.draw(renderer, bounds.size(), |frame| {
-            frame.translate(Vector::new(plane.x.margin, plane.y.margin));
+            frame.translate(Vector::new(plane.x.margin_min, plane.y.margin_max));
             frame.scale_nonuniform(Vector::new(plane.x.scale, plane.y.scale));
             frame.translate(Vector::new(-plane.x.min, plane.y.max));
 
@@ -722,5 +731,27 @@ impl Labels {
     pub fn font_size(mut self, font_size: impl Into<Pixels>) -> Self {
         self.font_size = Some(font_size.into());
         self
+    }
+}
+
+pub struct Margin {
+    pub top: f32,
+    pub bottom: f32,
+    pub left: f32,
+    pub right: f32,
+}
+
+impl Margin {
+    const MARGIN_DEFAULT: f32 = 10.0;
+}
+
+impl Default for Margin {
+    fn default() -> Self {
+        Self {
+            top: Self::MARGIN_DEFAULT,
+            bottom: Self::MARGIN_DEFAULT,
+            left: Self::MARGIN_DEFAULT,
+            right: Self::MARGIN_DEFAULT,
+        }
     }
 }
