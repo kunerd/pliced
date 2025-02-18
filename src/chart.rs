@@ -439,7 +439,7 @@ where
         };
 
         let geometry = self.cache.draw(renderer, bounds.size(), |frame| {
-            frame.translate(Vector::new(plane.x.margin_min, plane.y.margin_max));
+            frame.translate(Vector::new(self.margin.left, self.margin.top));
             frame.scale_nonuniform(Vector::new(plane.x.scale, plane.y.scale));
             frame.translate(Vector::new(-plane.x.min, plane.y.max));
 
