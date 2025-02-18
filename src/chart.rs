@@ -10,9 +10,9 @@ use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
-use iced::Point;
 use iced::{alignment, event, touch, Font, Renderer, Vector};
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
+use iced::{Pixels, Point};
 
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
@@ -108,11 +108,6 @@ where
         self
     }
 
-    //pub fn with_cache(mut self, cache: &'a canvas::Cache) -> Self {
-    //    self.cache = cache;
-    //    self
-    //}
-
     pub fn x_range(mut self, range: RangeInclusive<f32>) -> Self {
         self.x_range = AxisRange::Custom(range);
 
@@ -121,6 +116,42 @@ where
 
     pub fn y_range(mut self, range: RangeInclusive<f32>) -> Self {
         self.y_range = AxisRange::Custom(range);
+
+        self
+    }
+
+    pub fn x_axis(mut self, axis: Axis) -> Self {
+        self.x_axis = axis;
+
+        self
+    }
+
+    pub fn y_axis(mut self, axis: Axis) -> Self {
+        self.y_axis = axis;
+
+        self
+    }
+
+    pub fn x_ticks(mut self, ticks: Ticks) -> Self {
+        self.x_ticks = ticks;
+
+        self
+    }
+
+    pub fn y_ticks(mut self, ticks: Ticks) -> Self {
+        self.y_ticks = ticks;
+
+        self
+    }
+
+    pub fn x_labels(mut self, labels: Labels) -> Self {
+        self.x_labels = labels;
+
+        self
+    }
+
+    pub fn y_labels(mut self, labels: Labels) -> Self {
+        self.y_labels = labels;
 
         self
     }
@@ -592,6 +623,28 @@ pub struct Ticks {
     //limits: RangeInclusive<T>
 }
 
+impl Ticks {
+    pub fn color(mut self, color: iced::Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
+    }
+
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    pub fn amount(mut self, amount: usize) -> Self {
+        self.amount = amount;
+        self
+    }
+}
+
 impl Default for Ticks {
     fn default() -> Self {
         Self {
@@ -608,6 +661,18 @@ pub struct Axis {
     color: iced::Color,
     width: f32,
     // TODO limits
+}
+
+impl Axis {
+    pub fn color(mut self, color: iced::Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
 }
 
 impl Default for Axis {
@@ -646,4 +711,16 @@ pub struct Labels {
     // CA.times Time.utc  -- Add ticks at "nice" times
 
     //format (\num -> String.fromFloat num ++ "°")
+}
+
+impl Labels {
+    pub fn color(mut self, color: iced::Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    pub fn font_size(mut self, font_size: impl Into<Pixels>) -> Self {
+        self.font_size = Some(font_size.into());
+        self
+    }
 }
