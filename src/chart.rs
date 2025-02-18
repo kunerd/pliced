@@ -38,6 +38,7 @@ where
 
     x_range: AxisRange<RangeInclusive<f32>>,
     y_range: AxisRange<RangeInclusive<f32>>,
+
     series: Vec<Series>,
     cache: canvas::Cache,
 
@@ -197,6 +198,126 @@ where
         self.on_move = Some(Box::new(msg));
         self
     }
+
+    fn draw_x_axis(&self, frame: &mut canvas::Frame, plane: &Plane) {
+        frame.stroke(
+            &Path::line(plane.bottom_left(), plane.bottom_right()),
+            Stroke::default()
+                .with_width(self.x_axis.width)
+                .with_color(self.x_axis.color),
+        );
+
+        // ticks
+        let tick_width = plane.x.length / self.x_ticks.amount as f32;
+
+        let mut draw_x_tick = |x| {
+            let half_tick_height = self.x_ticks.height / 2.0;
+            let x_start = Point {
+                x,
+                y: -half_tick_height / plane.y.scale,
+            };
+            let x_end = Point {
+                x,
+                y: half_tick_height / plane.y.scale,
+            };
+            frame.stroke(
+                &Path::line(x_start, x_end),
+                Stroke::default()
+                    .with_width(self.x_ticks.width)
+                    .with_color(self.x_ticks.color),
+            );
+            frame.with_save(|frame| {
+                frame.scale_nonuniform(Vector::new(1.0 / plane.x.scale, 1.0 / plane.y.scale));
+                frame.fill_text(canvas::Text {
+                    content: format!("{x}"),
+                    size: self.x_labels.font_size.unwrap_or(12.into()),
+                    // TODO remove magic number,
+                    position: Point {
+                        x: x * plane.x.scale,
+                        y: 8.0,
+                    },
+                    // TODO use theme
+                    color: self.x_labels.color.unwrap_or(iced::Color::WHITE),
+                    // TODO edge case center tick
+                    horizontal_alignment: alignment::Horizontal::Center,
+                    vertical_alignment: alignment::Vertical::Top,
+                    font: Font::MONOSPACE,
+                    ..canvas::Text::default()
+                });
+            })
+        };
+
+        let left = (plane.x.min / tick_width).ceil() as i32;
+        for i in left..0 {
+            draw_x_tick(i as f32 * tick_width);
+        }
+
+        let right = (plane.x.max / tick_width).floor() as i32;
+        for i in 0..=right {
+            draw_x_tick(i as f32 * tick_width);
+        }
+    }
+
+    fn draw_y_axis(&self, frame: &mut canvas::Frame, plane: &Plane) {
+        frame.stroke(
+            &Path::line(plane.bottom_center(), plane.top_center())
+                .transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
+            Stroke::default()
+                .with_width(self.y_axis.width)
+                .with_color(self.y_axis.color),
+        );
+
+        // ticks
+        let ticks = 10usize;
+        let tick_width = plane.y.length / ticks as f32;
+
+        let mut draw_y_tick = |y| {
+            let half_tick_height = self.y_ticks.height / 2.0;
+            let start = Point {
+                x: -half_tick_height / plane.x.scale,
+                y,
+            };
+            let end = Point {
+                x: half_tick_height / plane.x.scale,
+                y,
+            };
+            frame.stroke(
+                &Path::line(start, end).transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
+                Stroke::default()
+                    .with_width(self.y_ticks.width)
+                    .with_color(self.y_ticks.color),
+            );
+            frame.with_save(|frame| {
+                frame.scale_nonuniform(Vector::new(1.0 / plane.x.scale, 1.0 / plane.y.scale));
+                frame.fill_text(canvas::Text {
+                    content: format!("{y}"),
+                    size: self.y_labels.font_size.unwrap_or(12.into()),
+                    // TODO remove magic number,
+                    position: Point {
+                        x: -5.0,
+                        y: -y * plane.y.scale + 2.5,
+                    },
+                    // TODO use theme
+                    color: self.y_labels.color.unwrap_or(iced::Color::WHITE),
+                    // TODO edge case center tick
+                    horizontal_alignment: alignment::Horizontal::Right,
+                    vertical_alignment: alignment::Vertical::Center,
+                    font: Font::MONOSPACE,
+                    ..canvas::Text::default()
+                })
+            })
+        };
+
+        let down = (plane.y.min / tick_width).ceil() as i32;
+        for i in down..0 {
+            draw_y_tick(i as f32 * tick_width);
+        }
+
+        let up = (plane.y.max / tick_width).floor() as i32;
+        for i in 1..=up {
+            draw_y_tick(i as f32 * tick_width);
+        }
+    }
 }
 
 impl<Message, Theme> Widget<Message, Theme, Renderer> for Chart<'_, Message, Theme>
@@ -282,146 +403,8 @@ where
             frame.scale_nonuniform(Vector::new(plane.x.scale, plane.y.scale));
             frame.translate(Vector::new(-plane.x.min, plane.y.max));
 
-            // x axis
-            {
-                let x_start = Point {
-                    x: plane.x.min,
-                    y: 0.0,
-                };
-                let x_end = Point {
-                    x: plane.x.max,
-                    y: 0.0,
-                };
-
-                frame.stroke(
-                    &Path::line(x_start, x_end),
-                    Stroke::default()
-                        .with_width(self.x_axis.width)
-                        .with_color(self.x_axis.color),
-                );
-
-                // ticks
-                let tick_width = plane.x.length / self.x_ticks.amount as f32;
-
-                let mut draw_x_tick = |x| {
-                    let half_tick_height = self.x_ticks.height / 2.0;
-                    let x_start = Point {
-                        x,
-                        y: -half_tick_height / plane.y.scale,
-                    };
-                    let x_end = Point {
-                        x,
-                        y: half_tick_height / plane.y.scale,
-                    };
-                    frame.stroke(
-                        &Path::line(x_start, x_end),
-                        Stroke::default()
-                            .with_width(self.x_ticks.width)
-                            .with_color(self.x_ticks.color),
-                    );
-                    frame.with_save(|frame| {
-                        frame.scale_nonuniform(Vector::new(
-                            1.0 / plane.x.scale,
-                            1.0 / plane.y.scale,
-                        ));
-                        frame.fill_text(canvas::Text {
-                            content: format!("{x}"),
-                            size: self.x_labels.font_size.unwrap_or(12.into()),
-                            // TODO remove magic number,
-                            position: Point {
-                                x: x * plane.x.scale,
-                                y: 8.0,
-                            },
-                            color: self.x_labels.color,
-                            // TODO edge case center tick
-                            horizontal_alignment: alignment::Horizontal::Center,
-                            vertical_alignment: alignment::Vertical::Top,
-                            font: Font::MONOSPACE,
-                            ..canvas::Text::default()
-                        });
-                    })
-                };
-
-                let left = (plane.x.min / tick_width).floor() as i32;
-                for i in left..0 {
-                    draw_x_tick(i as f32 * tick_width);
-                }
-
-                let right = (plane.x.max / tick_width).ceil() as i32;
-                for i in 0..=right {
-                    draw_x_tick(i as f32 * tick_width);
-                }
-            }
-
-            // y axis
-            {
-                let y_start = Point {
-                    x: 0.0,
-                    y: plane.x.min,
-                };
-                let y_end = Point {
-                    x: 0.0,
-                    y: plane.y.max,
-                };
-                frame.stroke(
-                    &Path::line(y_start, y_end)
-                        .transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-                    Stroke::default()
-                        .with_width(self.y_axis.width)
-                        .with_color(self.y_axis.color),
-                );
-
-                // ticks
-                let ticks = 10usize;
-                let tick_width = plane.y.length / ticks as f32;
-
-                let mut draw_y_tick = |y| {
-                    let half_tick_height = self.y_ticks.height / 2.0;
-                    let start = Point {
-                        x: -half_tick_height / plane.x.scale,
-                        y,
-                    };
-                    let end = Point {
-                        x: half_tick_height / plane.x.scale,
-                        y,
-                    };
-                    frame.stroke(
-                        &Path::line(start, end)
-                            .transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-                        Stroke::default()
-                            .with_width(self.y_ticks.width)
-                            .with_color(self.y_ticks.color),
-                    );
-                    frame.with_save(|frame| {
-                        frame.scale_nonuniform(Vector::new(1.0 / plane.x.scale, 1.0 / plane.y.scale));
-                        frame.fill_text(canvas::Text {
-                            content: format!("{y}"),
-                            size: self.y_labels.font_size.unwrap_or(12.into()),
-                            // TODO remove magic number,
-                            position: Point {
-                                x: -5.0,
-                                y: -y * plane.y.scale + 2.5,
-                            },
-                            color: self.y_labels.color,
-                            // TODO edge case center tick
-                            horizontal_alignment: alignment::Horizontal::Right,
-                            vertical_alignment: alignment::Vertical::Center,
-                            font: Font::MONOSPACE,
-                            ..canvas::Text::default()
-                        })
-                    })
-                };
-
-                let down = (plane.y.min / tick_width).floor() as i32;
-                for i in down..0 {
-                    draw_y_tick(i as f32 * tick_width);
-                }
-
-                let up = (plane.y.max / tick_width).ceil() as i32;
-                for i in 1..=up {
-                    draw_y_tick(i as f32 * tick_width);
-                }
-            }
+            self.draw_x_axis(frame, plane);
+            self.draw_y_axis(frame, plane);
 
             // series
             for series in &self.series {
@@ -639,7 +622,7 @@ impl Default for Axis {
 
 #[derive(Debug, Default)]
 pub struct Labels {
-    color: iced::Color,
+    color: Option<iced::Color>,
     font_size: Option<iced::Pixels>,
     // TODO:
     // alignment
