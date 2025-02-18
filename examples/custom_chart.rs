@@ -5,7 +5,7 @@ use pliced::series::line_series;
 
 use iced::{widget::container, Element, Length, Task, Theme};
 
-use std::ops::{Range, RangeInclusive};
+use std::ops::RangeInclusive;
 
 fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view)
