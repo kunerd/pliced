@@ -6,10 +6,38 @@ pub struct Plane {
 }
 
 impl Plane {
+    pub fn bottom_center(&self) -> iced::Point {
+        iced::Point {
+            x: 0.0,
+            y: self.y.min
+        }
+    }
+
+    pub fn top_center(&self) -> iced::Point {
+        iced::Point {
+            x: 0.0,
+            y: self.y.max
+        }
+    }
+
+    pub fn bottom_left(&self) -> iced::Point {
+        iced::Point {
+            x: self.x.min,
+            y: 0.0,
+        }
+    }
+
+    pub fn bottom_right(&self) -> iced::Point {
+        iced::Point {
+            x: self.x.max,
+            y: 0.0,
+        }
+    }
+
     pub fn get_cartesian(&self, pos: iced::Point) -> iced::Point {
         let mut point = pos * iced::Transformation::translate(-self.x.margin, -self.y.margin);
-        point.x *= 1.0 / self.x.scale;
-        point.y *= 1.0 / self.y.scale;
+        point.x /= self.x.scale;
+        point.y /= self.y.scale;
         let mut point = point * iced::Transformation::translate(self.x.min, -self.y.max);
         point.y = -point.y;
 
@@ -24,6 +52,7 @@ impl Plane {
             pos.y - (self.y.min + self.y.length / 2.0),
         )
     }
+
 }
 
 pub struct Axis {
