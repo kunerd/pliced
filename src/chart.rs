@@ -1,14 +1,17 @@
-mod axis;
+mod cartesian;
+
 use crate::series::Series;
 use core::f32;
 
+use cartesian::Plane;
 use iced::advanced::graphics::geometry::Renderer as _;
 use iced::advanced::widget::{tree, Tree};
 use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
-use iced::{alignment, event, touch, Color, Font, Point, Renderer, Vector};
+use iced::Point;
+use iced::{alignment, event, touch, Font, Renderer, Vector};
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 
 use std::marker::PhantomData;
@@ -29,6 +32,9 @@ where
 
     x_ticks: Ticks,
     y_ticks: Ticks,
+
+    x_labels: Labels,
+    y_labels: Labels,
 
     x_range: AxisRange<RangeInclusive<f32>>,
     y_range: AxisRange<RangeInclusive<f32>>,
@@ -68,8 +74,12 @@ where
             x_ticks: Ticks::default(),
             y_ticks: Ticks::default(),
 
+            x_labels: Labels::default(),
+            y_labels: Labels::default(),
+
             x_range: AxisRange::default(),
             y_range: AxisRange::default(),
+
             series: Vec::new(),
             cache: canvas::Cache::new(),
             on_move: None,
@@ -230,10 +240,18 @@ where
         };
 
         let node = layout::Node::new(size);
+        let bounds = node.bounds();
 
-        state.x_range = Some(x_range.clone());
-        state.y_range = Some(y_range.clone());
-        state.bounds = node.bounds();
+        // TODO make configurable
+        let x_margin = 10.0;
+        let y_margin = 10.0;
+
+        let plane = Plane {
+            x: cartesian::Axis::new(x_range, x_margin, bounds.width),
+            y: cartesian::Axis::new(y_range, y_margin, bounds.height),
+        };
+
+        state.plane = Some(plane);
 
         node
     }
@@ -255,40 +273,23 @@ where
         }
 
         let state: &State = tree.state.downcast_ref();
-        let x_range = state.x_range.as_ref().unwrap();
-        let y_range = state.y_range.as_ref().unwrap();
-
-        //let x_range = match &self.x_range {
-        //    AxisRange::Custom(range) => range,
-        //    AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::X_RANGE_DEFAULT),
-        //};
-
-        //let y_range = match &self.y_range {
-        //    AxisRange::Custom(range) => range,
-        //    AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::Y_RANGE_DEFAULT),
-        //};
+        let Some(plane) = &state.plane else {
+            return;
+        };
 
         let geometry = self.cache.draw(renderer, bounds.size(), |frame| {
-            let x_margin = 10f32;
-            let y_margin = 20f32;
-
-            let x_axis_length = -x_range.start() + x_range.end();
-            let y_axis_length = -y_range.start() + y_range.end();
-            let x_scale = (bounds.width - 2.0 * x_margin) / x_axis_length;
-            let y_scale = (bounds.height - 2.0 * y_margin) / y_axis_length;
-
-            frame.translate(Vector::new(x_margin, y_margin));
-            frame.scale_nonuniform(Vector::new(x_scale, y_scale));
-            frame.translate(Vector::new(-*x_range.start(), *y_range.end()));
+            frame.translate(Vector::new(plane.x.margin, plane.y.margin));
+            frame.scale_nonuniform(Vector::new(plane.x.scale, plane.y.scale));
+            frame.translate(Vector::new(-plane.x.min, plane.y.max));
 
             // x axis
             {
                 let x_start = Point {
-                    x: *x_range.start(),
+                    x: plane.x.min,
                     y: 0.0,
                 };
                 let x_end = Point {
-                    x: *x_range.end(),
+                    x: plane.x.max,
                     y: 0.0,
                 };
 
@@ -300,18 +301,17 @@ where
                 );
 
                 // ticks
-                let tick_width = x_axis_length / self.x_ticks.amount as f32;
+                let tick_width = plane.x.length / self.x_ticks.amount as f32;
 
                 let mut draw_x_tick = |x| {
                     let half_tick_height = self.x_ticks.height / 2.0;
                     let x_start = Point {
                         x,
-                        //todo tick length
-                        y: -half_tick_height / y_scale,
+                        y: -half_tick_height / plane.y.scale,
                     };
                     let x_end = Point {
                         x,
-                        y: half_tick_height / y_scale,
+                        y: half_tick_height / plane.y.scale,
                     };
                     frame.stroke(
                         &Path::line(x_start, x_end),
@@ -320,16 +320,19 @@ where
                             .with_color(self.x_ticks.color),
                     );
                     frame.with_save(|frame| {
-                        frame.scale_nonuniform(Vector::new(1.0 / x_scale, 1.0 / y_scale));
+                        frame.scale_nonuniform(Vector::new(
+                            1.0 / plane.x.scale,
+                            1.0 / plane.y.scale,
+                        ));
                         frame.fill_text(canvas::Text {
                             content: format!("{x}"),
-                            size: 12.0.into(),
+                            size: self.x_labels.font_size.unwrap_or(12.into()),
                             // TODO remove magic number,
                             position: Point {
-                                x: x * x_scale,
+                                x: x * plane.x.scale,
                                 y: 8.0,
                             },
-                            color: Color::WHITE,
+                            color: self.x_labels.color,
                             // TODO edge case center tick
                             horizontal_alignment: alignment::Horizontal::Center,
                             vertical_alignment: alignment::Vertical::Top,
@@ -339,12 +342,12 @@ where
                     })
                 };
 
-                let left = (x_range.start() / tick_width).floor() as i32;
+                let left = (plane.x.min / tick_width).floor() as i32;
                 for i in left..0 {
                     draw_x_tick(i as f32 * tick_width);
                 }
 
-                let right = (x_range.end() / tick_width).ceil() as i32;
+                let right = (plane.x.max / tick_width).ceil() as i32;
                 for i in 0..=right {
                     draw_x_tick(i as f32 * tick_width);
                 }
@@ -354,11 +357,11 @@ where
             {
                 let y_start = Point {
                     x: 0.0,
-                    y: *y_range.start(),
+                    y: plane.x.min,
                 };
                 let y_end = Point {
                     x: 0.0,
-                    y: *y_range.end(),
+                    y: plane.y.max,
                 };
                 frame.stroke(
                     &Path::line(y_start, y_end)
@@ -370,16 +373,16 @@ where
 
                 // ticks
                 let ticks = 10usize;
-                let tick_width = y_axis_length / ticks as f32;
+                let tick_width = plane.y.length / ticks as f32;
 
                 let mut draw_y_tick = |y| {
                     let half_tick_height = self.y_ticks.height / 2.0;
                     let start = Point {
-                        x: -half_tick_height / x_scale,
+                        x: -half_tick_height / plane.x.scale,
                         y,
                     };
                     let end = Point {
-                        x: half_tick_height / x_scale,
+                        x: half_tick_height / plane.x.scale,
                         y,
                     };
                     frame.stroke(
@@ -390,16 +393,16 @@ where
                             .with_color(self.y_ticks.color),
                     );
                     frame.with_save(|frame| {
-                        frame.scale_nonuniform(Vector::new(1.0 / x_scale, 1.0 / y_scale));
+                        frame.scale_nonuniform(Vector::new(1.0 / plane.x.scale, 1.0 / plane.y.scale));
                         frame.fill_text(canvas::Text {
                             content: format!("{y}"),
-                            size: 12.0.into(),
+                            size: self.y_labels.font_size.unwrap_or(12.into()),
                             // TODO remove magic number,
                             position: Point {
                                 x: -5.0,
-                                y: -y * y_scale + 2.5,
+                                y: -y * plane.y.scale + 2.5,
                             },
-                            color: Color::WHITE,
+                            color: self.y_labels.color,
                             // TODO edge case center tick
                             horizontal_alignment: alignment::Horizontal::Right,
                             vertical_alignment: alignment::Vertical::Center,
@@ -409,12 +412,12 @@ where
                     })
                 };
 
-                let down = (y_range.start() / tick_width).floor() as i32;
+                let down = (plane.y.min / tick_width).floor() as i32;
                 for i in down..0 {
                     draw_y_tick(i as f32 * tick_width);
                 }
 
-                let up = (y_range.end() / tick_width).ceil() as i32;
+                let up = (plane.y.max / tick_width).ceil() as i32;
                 for i in 1..=up {
                     draw_y_tick(i as f32 * tick_width);
                 }
@@ -452,10 +455,10 @@ where
                             }
                         })
                         .transform(&Transform2D::new(
-                            radius / x_scale,
+                            radius / plane.x.scale,
                             0.0,
                             0.0,
-                            radius / y_scale,
+                            radius / plane.y.scale,
                             0.0,
                             0.0,
                         ));
@@ -547,12 +550,9 @@ where
 /// Local state of the [`Chart`].
 #[derive(Default)]
 pub struct State {
-    //is_hovered: bool,
-    bounds: Rectangle,
+    plane: Option<Plane>,
     prev_position: Option<Point>,
     cursor_position: Option<Point>,
-    x_range: Option<RangeInclusive<f32>>,
-    y_range: Option<RangeInclusive<f32>>,
 }
 
 impl State {
@@ -561,24 +561,7 @@ impl State {
     }
 
     fn get_cartesian(&self, point: Point) -> Option<Point> {
-        let x_margin = 10.0;
-        let y_margin = 20.0;
-
-        let x_range = self.x_range.clone()?;
-        let y_range = self.y_range.clone()?;
-        let bounds = self.bounds;
-
-        let x_axis_length = -x_range.start() + x_range.end();
-        let y_axis_length = -y_range.start() + y_range.end();
-        let x_scale = (bounds.width - 2.0 * x_margin) / x_axis_length;
-        let y_scale = (bounds.height - 2.0 * y_margin) / y_axis_length;
-
-        let mut point = point * iced::Transformation::translate(-x_margin, -y_margin);
-        point.x *= 1.0 / x_scale;
-        point.y *= 1.0 / y_scale;
-        let mut point = point * iced::Transformation::translate(*x_range.start(), -*y_range.end());
-        point.y = -point.y;
-        Some(point)
+        self.plane.as_ref().map(|p| p.get_cartesian(point))
     }
 
     pub fn get_coords(&self) -> Option<Point> {
@@ -586,16 +569,9 @@ impl State {
     }
 
     pub fn get_offset(&self) -> Option<Point> {
-        let cur = self.get_cartesian(self.cursor_position?)?;
-        let x_range = self.x_range.clone()?;
-        let y_range = self.y_range.clone()?;
-        let x_axis_length = -x_range.start() + x_range.end();
-        let y_axis_length = -y_range.start() + y_range.end();
+        let pos = self.cursor_position?;
 
-        Some(Point::new(
-            cur.x - (x_range.start() + x_axis_length / 2.0),
-            cur.y - (y_range.start() + y_axis_length / 2.0),
-        ))
+        self.plane.as_ref().map(|p| p.get_offset(pos))
     }
 }
 
@@ -659,4 +635,32 @@ impl Default for Axis {
             width: 1.0,
         }
     }
+}
+
+#[derive(Debug, Default)]
+pub struct Labels {
+    color: iced::Color,
+    font_size: Option<iced::Pixels>,
+    // TODO:
+    // alignment
+    // limits
+    // uppercase    -- Make labels uppercase
+    // rotate 90    -- Rotate labels
+
+    // CA.alignRight   -- Anchor labels to the right
+    // CA.alignLeft    -- Anchor labels to the left
+
+    // CA.moveUp 5     -- Move 5 SVG units up
+    // CA.moveDown 5   -- Move 5 SVG units down
+    // CA.moveLeft 5   -- Move 5 SVG units left
+    // CA.moveRight 5  -- Move 5 SVG units right
+
+    // CA.amount 15   -- Change amount of ticks
+    // , CA.flip        -- Flip to opposite direction
+    // CA.withGrid    -- Add grid line by each label.
+
+    // CA.ints            -- Add ticks at "nice" ints
+    // CA.times Time.utc  -- Add ticks at "nice" times
+
+    //format (\num -> String.fromFloat num ++ "°")
 }
