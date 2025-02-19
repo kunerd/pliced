@@ -1,7 +1,5 @@
 use std::{f32, ops::RangeInclusive};
 
-use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
-
 pub struct Plane {
     pub x: Axis,
     pub y: Axis,
