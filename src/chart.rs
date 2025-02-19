@@ -232,52 +232,62 @@ where
         self
     }
 
+    fn scale(&self, plane: &Plane, frame: &mut canvas::Frame) {
+        frame.translate(Vector::new(self.margin.left, self.margin.top));
+        frame.scale_nonuniform(Vector::new(plane.x.scale, plane.y.scale));
+        frame.translate(Vector::new(-plane.x.min, plane.y.max));
+    }
+
     fn draw_x_axis(&self, frame: &mut canvas::Frame, plane: &Plane) {
-        frame.stroke(
-            &Path::line(plane.bottom_left(), plane.bottom_right()),
-            Stroke::default()
-                .with_width(self.x_axis.width)
-                .with_color(self.x_axis.color),
-        );
+        frame.with_save(|frame| {
+            self.scale(plane, frame);
+            frame.stroke(
+                &Path::line(plane.bottom_left(), plane.bottom_right()),
+                Stroke::default()
+                    .with_width(self.x_axis.width)
+                    .with_color(self.x_axis.color),
+            );
+        });
 
         // ticks
         let tick_width = plane.x.length / self.x_ticks.amount as f32;
-
         let mut draw_x_tick = |x| {
+            let x_scaled = plane.scale_to_cartesian_x(x);
+            let y_scaled = plane.scale_to_cartesian_y(0.0);
+
             let half_tick_height = self.x_ticks.height / 2.0;
             let x_start = Point {
-                x,
-                y: -half_tick_height / plane.y.scale,
+                x: x_scaled,
+                y: y_scaled - half_tick_height,
             };
             let x_end = Point {
-                x,
-                y: half_tick_height / plane.y.scale,
+                x: x_scaled,
+                y: y_scaled + half_tick_height,
             };
+
             frame.stroke(
                 &Path::line(x_start, x_end),
                 Stroke::default()
                     .with_width(self.x_ticks.width)
                     .with_color(self.x_ticks.color),
             );
-            frame.with_save(|frame| {
-                frame.scale_nonuniform(Vector::new(1.0 / plane.x.scale, 1.0 / plane.y.scale));
-                frame.fill_text(canvas::Text {
-                    content: format!("{x}"),
-                    size: self.x_labels.font_size.unwrap_or(12.into()),
+
+            frame.fill_text(canvas::Text {
+                content: format!("{x}"),
+                size: self.x_labels.font_size.unwrap_or(12.into()),
+                position: Point {
+                    x: x_scaled,
                     // TODO remove magic number,
-                    position: Point {
-                        x: x * plane.x.scale,
-                        y: 8.0,
-                    },
-                    // TODO use theme
-                    color: self.x_labels.color.unwrap_or(iced::Color::WHITE),
-                    // TODO edge case center tick
-                    horizontal_alignment: alignment::Horizontal::Center,
-                    vertical_alignment: alignment::Vertical::Top,
-                    font: Font::MONOSPACE,
-                    ..canvas::Text::default()
-                });
-            })
+                    y: y_scaled + 8.0,
+                },
+                // TODO use theme
+                color: self.x_labels.color.unwrap_or(iced::Color::WHITE),
+                // TODO edge case center tick
+                horizontal_alignment: alignment::Horizontal::Center,
+                vertical_alignment: alignment::Vertical::Top,
+                font: Font::MONOSPACE,
+                ..canvas::Text::default()
+            });
         };
 
         let left = (plane.x.min / tick_width).ceil() as i32;
@@ -292,55 +302,57 @@ where
     }
 
     fn draw_y_axis(&self, frame: &mut canvas::Frame, plane: &Plane) {
-        frame.stroke(
-            &Path::line(plane.bottom_center(), plane.top_center())
-                .transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-            Stroke::default()
-                .with_width(self.y_axis.width)
-                .with_color(self.y_axis.color),
-        );
-
-        // ticks
-        let ticks = 10usize;
-        let tick_width = plane.y.length / ticks as f32;
+        frame.with_save(|frame| {
+            self.scale(plane, frame);
+            frame.stroke(
+                &Path::line(plane.bottom_center(), plane.top_center())
+                    .transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
+                Stroke::default()
+                    .with_width(self.y_axis.width)
+                    .with_color(self.y_axis.color),
+            );
+        });
 
         let mut draw_y_tick = |y| {
+            let x_scaled = plane.scale_to_cartesian_x(0.0);
+            let y_scaled = plane.scale_to_cartesian_y(y);
+
             let half_tick_height = self.y_ticks.height / 2.0;
             let start = Point {
-                x: -half_tick_height / plane.x.scale,
-                y,
+                x: x_scaled - half_tick_height,
+                y: y_scaled,
             };
             let end = Point {
-                x: half_tick_height / plane.x.scale,
-                y,
+                x: x_scaled + half_tick_height,
+                y: y_scaled,
             };
+
             frame.stroke(
                 &Path::line(start, end).transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
                 Stroke::default()
                     .with_width(self.y_ticks.width)
                     .with_color(self.y_ticks.color),
             );
-            frame.with_save(|frame| {
-                frame.scale_nonuniform(Vector::new(1.0 / plane.x.scale, 1.0 / plane.y.scale));
-                frame.fill_text(canvas::Text {
-                    content: format!("{y}"),
-                    size: self.y_labels.font_size.unwrap_or(12.into()),
+
+            frame.fill_text(canvas::Text {
+                content: format!("{y}"),
+                size: self.y_labels.font_size.unwrap_or(12.into()),
+                position: Point {
                     // TODO remove magic number,
-                    position: Point {
-                        x: -5.0,
-                        y: -y * plane.y.scale + 2.5,
-                    },
-                    // TODO use theme
-                    color: self.y_labels.color.unwrap_or(iced::Color::WHITE),
-                    // TODO edge case center tick
-                    horizontal_alignment: alignment::Horizontal::Right,
-                    vertical_alignment: alignment::Vertical::Center,
-                    font: Font::MONOSPACE,
-                    ..canvas::Text::default()
-                })
+                    x: x_scaled - 8.0,
+                    y: y_scaled,
+                },
+                // TODO use theme
+                color: self.y_labels.color.unwrap_or(iced::Color::WHITE),
+                // TODO edge case center tick
+                horizontal_alignment: alignment::Horizontal::Right,
+                vertical_alignment: alignment::Vertical::Center,
+                font: Font::MONOSPACE,
+                ..canvas::Text::default()
             })
         };
 
+        let tick_width = plane.y.length / self.y_ticks.amount as f32;
         let down = (plane.y.min / tick_width).ceil() as i32;
         for i in down..0 {
             draw_y_tick(i as f32 * tick_width);
@@ -439,63 +451,62 @@ where
         };
 
         let geometry = self.cache.draw(renderer, bounds.size(), |frame| {
-            frame.translate(Vector::new(self.margin.left, self.margin.top));
-            frame.scale_nonuniform(Vector::new(plane.x.scale, plane.y.scale));
-            frame.translate(Vector::new(-plane.x.min, plane.y.max));
-
             self.draw_x_axis(frame, plane);
             self.draw_y_axis(frame, plane);
 
-            // series
-            for series in &self.series {
-                let path = match series {
-                    Series::Line(line_series) => {
-                        let mut iter = line_series.data.iter();
-                        let path = Path::new(|b| {
-                            if let Some(p) = iter.next() {
-                                b.move_to(Point { x: p.0, y: p.1 });
-                                iter.fold(b, |acc, p| {
-                                    acc.line_to(Point { x: p.0, y: p.1 });
-                                    acc
-                                });
-                            }
-                        });
-                        Some((path, line_series.color))
-                    }
-                    Series::Point(point_series) => {
-                        let radius = 2.0;
-                        let mut iter = point_series.data.iter();
+            frame.with_save(|frame| {
+                self.scale(plane, frame);
 
-                        let path = Path::new(|b| {
-                            if let Some(p) = iter.next() {
-                                let point = Point { x: p.0, y: p.1 };
-                                b.circle(point, radius);
-                                iter.fold(b, |acc, p| {
+                for series in &self.series {
+                    let path = match series {
+                        Series::Line(line_series) => {
+                            let mut iter = line_series.data.iter();
+                            let path = Path::new(|b| {
+                                if let Some(p) = iter.next() {
+                                    b.move_to(Point { x: p.0, y: p.1 });
+                                    iter.fold(b, |acc, p| {
+                                        acc.line_to(Point { x: p.0, y: p.1 });
+                                        acc
+                                    });
+                                }
+                            });
+                            Some((path, line_series.color))
+                        }
+                        Series::Point(point_series) => {
+                            let radius = 2.0;
+                            let mut iter = point_series.data.iter();
+
+                            let path = Path::new(|b| {
+                                if let Some(p) = iter.next() {
                                     let point = Point { x: p.0, y: p.1 };
-                                    acc.circle(point, radius);
-                                    acc
-                                });
-                            }
-                        })
-                        .transform(&Transform2D::new(
-                            radius / plane.x.scale,
-                            0.0,
-                            0.0,
-                            radius / plane.y.scale,
-                            0.0,
-                            0.0,
-                        ));
-                        Some((path, point_series.color))
-                    }
-                };
+                                    b.circle(point, radius);
+                                    iter.fold(b, |acc, p| {
+                                        let point = Point { x: p.0, y: p.1 };
+                                        acc.circle(point, radius);
+                                        acc
+                                    });
+                                }
+                            })
+                            .transform(&Transform2D::new(
+                                radius / plane.x.scale,
+                                0.0,
+                                0.0,
+                                radius / plane.y.scale,
+                                0.0,
+                                0.0,
+                            ));
+                            Some((path, point_series.color))
+                        }
+                    };
 
-                if let Some((path, color)) = path {
-                    frame.stroke(
-                        &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-                        Stroke::default().with_width(2.0).with_color(color),
-                    );
+                    if let Some((path, color)) = path {
+                        frame.stroke(
+                            &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
+                            Stroke::default().with_width(2.0).with_color(color),
+                        );
+                    }
                 }
-            }
+            })
         });
 
         renderer.draw_geometry(geometry);
