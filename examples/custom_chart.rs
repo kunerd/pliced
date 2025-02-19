@@ -1,6 +1,6 @@
 extern crate pliced;
 
-use pliced::chart::{Chart, Margin};
+use pliced::chart::{Chart, Labels, Margin};
 use pliced::series::line_series;
 
 use iced::{widget::container, Element, Length, Task, Theme};
@@ -131,16 +131,14 @@ impl App {
                     right: 15.0,
                 })
                 .x_range(self.x_range.clone())
+                .x_labels(Labels::default().format(&|v| format!("{v:.2}")))
+                .y_labels(Labels::default().format(&|v| format!("{v:.2}")))
                 //.y_range(-1.0..=1.0)
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary))
                 .push_series(
                     line_series(self.data.iter().copied().map(|(x, y)| (x, y * 0.5)))
                         .color(palette.success),
                 )
-                //.push_series(
-                //    point_series(self.data.iter().copied().map(|(x, y)| (x + 0.5, y * 2.0)))
-                //        .color(palette.danger),
-                //),
                 .on_press(|state| Message::MouseDown(state.get_offset()))
                 .on_release(|state| Message::MouseUp(state.get_offset()))
                 .on_move(|state| Message::OnMove(state.get_offset())),

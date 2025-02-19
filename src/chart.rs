@@ -36,8 +36,8 @@ where
     x_ticks: Ticks,
     y_ticks: Ticks,
 
-    x_labels: Labels,
-    y_labels: Labels,
+    x_labels: Labels<'a>,
+    y_labels: Labels<'a>,
 
     x_range: AxisRange<RangeInclusive<f32>>,
     y_range: AxisRange<RangeInclusive<f32>>,
@@ -148,12 +148,12 @@ where
         self
     }
 
-    pub fn x_labels(mut self, labels: Labels) -> Self {
+    pub fn x_labels(mut self, labels: Labels<'a>) -> Self {
         self.x_labels = labels;
         self
     }
 
-    pub fn y_labels(mut self, labels: Labels) -> Self {
+    pub fn y_labels(mut self, labels: Labels<'a>) -> Self {
         self.y_labels = labels;
         self
     }
@@ -272,8 +272,13 @@ where
                     .with_color(self.x_ticks.color),
             );
 
+            let label = self
+                .x_labels
+                .format
+                .map_or_else(|| format!("{x}"), |fmt| fmt(&x));
+
             frame.fill_text(canvas::Text {
-                content: format!("{x}"),
+                content: label,
                 size: self.x_labels.font_size.unwrap_or(12.into()),
                 position: Point {
                     x: x_scaled,
@@ -334,8 +339,13 @@ where
                     .with_color(self.y_ticks.color),
             );
 
+            let label = self
+                .y_labels
+                .format
+                .map_or_else(|| format!("{y}"), |fmt| fmt(&y));
+
             frame.fill_text(canvas::Text {
-                content: format!("{y}"),
+                content: label,
                 size: self.y_labels.font_size.unwrap_or(12.into()),
                 position: Point {
                     // TODO remove magic number,
@@ -705,35 +715,33 @@ impl Default for Axis {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct Labels {
+#[derive(Default)]
+pub struct Labels<'a> {
     color: Option<iced::Color>,
     font_size: Option<iced::Pixels>,
-    // TODO:
-    // alignment
-    // limits
-    // uppercase    -- Make labels uppercase
-    // rotate 90    -- Rotate labels
+    format: Option<&'a dyn Fn(&f32) -> String>, // TODO:
+                                                // alignment
+                                                // limits
+                                                // uppercase    -- Make labels uppercase
+                                                // rotate 90    -- Rotate labels
 
-    // CA.alignRight   -- Anchor labels to the right
-    // CA.alignLeft    -- Anchor labels to the left
+                                                // CA.alignRight   -- Anchor labels to the right
+                                                // CA.alignLeft    -- Anchor labels to the left
 
-    // CA.moveUp 5     -- Move 5 SVG units up
-    // CA.moveDown 5   -- Move 5 SVG units down
-    // CA.moveLeft 5   -- Move 5 SVG units left
-    // CA.moveRight 5  -- Move 5 SVG units right
+                                                // CA.moveUp 5     -- Move 5 SVG units up
+                                                // CA.moveDown 5   -- Move 5 SVG units down
+                                                // CA.moveLeft 5   -- Move 5 SVG units left
+                                                // CA.moveRight 5  -- Move 5 SVG units right
 
-    // CA.amount 15   -- Change amount of ticks
-    // , CA.flip        -- Flip to opposite direction
-    // CA.withGrid    -- Add grid line by each label.
+                                                // CA.amount 15   -- Change amount of ticks
+                                                // , CA.flip        -- Flip to opposite direction
+                                                // CA.withGrid    -- Add grid line by each label.
 
-    // CA.ints            -- Add ticks at "nice" ints
-    // CA.times Time.utc  -- Add ticks at "nice" times
-
-    //format (\num -> String.fromFloat num ++ "°")
+                                                // CA.ints            -- Add ticks at "nice" ints
+                                                // CA.times Time.utc  -- Add ticks at "nice" times
 }
 
-impl Labels {
+impl<'a> Labels<'a> {
     pub fn color(mut self, color: iced::Color) -> Self {
         self.color = Some(color);
         self
@@ -741,6 +749,11 @@ impl Labels {
 
     pub fn font_size(mut self, font_size: impl Into<Pixels>) -> Self {
         self.font_size = Some(font_size.into());
+        self
+    }
+
+    pub fn format(mut self, format: &'a dyn Fn(&f32) -> String) -> Self {
+        self.format = Some(format);
         self
     }
 }
