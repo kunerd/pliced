@@ -131,7 +131,7 @@ impl App {
                     right: 15.0,
                 })
                 .x_range(self.x_range.clone())
-                //.y_range(-1.0..1.0)
+                //.y_range(-1.0..=1.0)
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary))
                 .push_series(
                     line_series(self.data.iter().copied().map(|(x, y)| (x, y * 0.5)))

@@ -1,5 +1,7 @@
 use std::{f32, ops::RangeInclusive};
 
+use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
+
 pub struct Plane {
     pub x: Axis,
     pub y: Axis,
@@ -32,6 +34,22 @@ impl Plane {
             x: self.x.max,
             y: 0.0,
         }
+    }
+
+    pub fn scale_to_cartesian_x(&self, value: f32) -> f32 {
+        let mut result = value - self.x.min;
+        result *= self.x.scale;
+        result += self.x.margin_min;
+
+        result
+    }
+
+    pub fn scale_to_cartesian_y(&self, value: f32) -> f32 {
+        let mut result = -value + self.y.max;
+        result *= self.y.scale;
+        result += self.y.margin_max;
+
+        result
     }
 
     pub fn get_cartesian(&self, pos: iced::Point) -> iced::Point {
