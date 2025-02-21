@@ -382,6 +382,62 @@ where
             draw_y_tick(i as f32 * tick_width);
         }
     }
+
+    fn draw_data(&self, frame: &mut canvas::Frame, plane: &Plane) {
+        frame.with_save(|frame| {
+            self.scale(plane, frame);
+
+            for series in &self.series {
+                let path = match series {
+                    Series::Line(line_series) => {
+                        let mut iter = line_series.data.iter();
+                        let path = Path::new(|b| {
+                            if let Some(p) = iter.next() {
+                                b.move_to(Point { x: p.0, y: p.1 });
+                                iter.fold(b, |acc, p| {
+                                    acc.line_to(Point { x: p.0, y: p.1 });
+                                    acc
+                                });
+                            }
+                        });
+                        Some((path, line_series.color))
+                    }
+                    Series::Point(point_series) => {
+                        let radius = 2.0;
+                        let mut iter = point_series.data.iter();
+
+                        let path = Path::new(|b| {
+                            if let Some(p) = iter.next() {
+                                let point = Point { x: p.0, y: p.1 };
+                                b.circle(point, radius);
+                                iter.fold(b, |acc, p| {
+                                    let point = Point { x: p.0, y: p.1 };
+                                    acc.circle(point, radius);
+                                    acc
+                                });
+                            }
+                        })
+                        .transform(&Transform2D::new(
+                            radius / plane.x.scale,
+                            0.0,
+                            0.0,
+                            radius / plane.y.scale,
+                            0.0,
+                            0.0,
+                        ));
+                        Some((path, point_series.color))
+                    }
+                };
+
+                if let Some((path, color)) = path {
+                    frame.stroke(
+                        &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
+                        Stroke::default().with_width(2.0).with_color(color),
+                    );
+                }
+            }
+        })
+    }
 }
 
 impl<Message, Theme> Widget<Message, Theme, Renderer> for Chart<'_, Message, Theme>
@@ -471,62 +527,9 @@ where
         };
 
         let geometry = self.cache.draw(renderer, bounds.size(), |frame| {
+            self.draw_data(frame, plane);
             self.draw_x_axis(frame, plane);
             self.draw_y_axis(frame, plane);
-
-            frame.with_save(|frame| {
-                self.scale(plane, frame);
-
-                for series in &self.series {
-                    let path = match series {
-                        Series::Line(line_series) => {
-                            let mut iter = line_series.data.iter();
-                            let path = Path::new(|b| {
-                                if let Some(p) = iter.next() {
-                                    b.move_to(Point { x: p.0, y: p.1 });
-                                    iter.fold(b, |acc, p| {
-                                        acc.line_to(Point { x: p.0, y: p.1 });
-                                        acc
-                                    });
-                                }
-                            });
-                            Some((path, line_series.color))
-                        }
-                        Series::Point(point_series) => {
-                            let radius = 2.0;
-                            let mut iter = point_series.data.iter();
-
-                            let path = Path::new(|b| {
-                                if let Some(p) = iter.next() {
-                                    let point = Point { x: p.0, y: p.1 };
-                                    b.circle(point, radius);
-                                    iter.fold(b, |acc, p| {
-                                        let point = Point { x: p.0, y: p.1 };
-                                        acc.circle(point, radius);
-                                        acc
-                                    });
-                                }
-                            })
-                            .transform(&Transform2D::new(
-                                radius / plane.x.scale,
-                                0.0,
-                                0.0,
-                                radius / plane.y.scale,
-                                0.0,
-                                0.0,
-                            ));
-                            Some((path, point_series.color))
-                        }
-                    };
-
-                    if let Some((path, color)) = path {
-                        frame.stroke(
-                            &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-                            Stroke::default().with_width(2.0).with_color(color),
-                        );
-                    }
-                }
-            })
         });
 
         renderer.with_translation(Vector::new(bounds.x, bounds.y), |renderer| {
