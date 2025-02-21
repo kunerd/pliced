@@ -553,11 +553,12 @@ where
             return event::Status::Ignored;
         };
 
-        let state: &mut State = tree.state.downcast_mut();
-        state.prev_position = state.cursor_position;
-        state.cursor_position = Some(cursor_position);
-
         let bounds = layout.bounds();
+
+        let state: &mut State = tree.state.downcast_mut();
+        let relative_position = cursor_position - Vector::new(bounds.x, bounds.y);
+        state.prev_position = state.cursor_position;
+        state.cursor_position = Some(relative_position);
 
         //if state.cursor_position != cursor_position || state.bounds != bounds {
         if bounds.contains(cursor_position) {
