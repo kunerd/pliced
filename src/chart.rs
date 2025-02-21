@@ -7,7 +7,9 @@ use cartesian::Plane;
 use iced::advanced::graphics::geometry::Renderer as _;
 use iced::advanced::text::Renderer as _;
 use iced::advanced::widget::{tree, Tree};
+use iced::advanced::Renderer as _;
 use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
+use iced::mouse::ScrollDelta;
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
@@ -48,6 +50,7 @@ where
     on_move: Option<StateFn<'a, Message>>,
     on_press: Option<StateFn<'a, Message>>,
     on_release: Option<StateFn<'a, Message>>,
+    on_scroll: Option<StateFn<'a, Message>>,
     //on_right_press: Option<Message>,
     //on_right_release: Option<Message>,
     //on_middle_press: Option<Message>,
@@ -91,6 +94,7 @@ where
             on_move: None,
             on_press: None,
             on_release: None,
+            on_scroll: None,
             theme_: PhantomData,
         }
     }
@@ -229,6 +233,11 @@ where
 
     pub fn on_move(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
         self.on_move = Some(Box::new(msg));
+        self
+    }
+
+    pub fn on_scroll(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
+        self.on_scroll = Some(Box::new(msg));
         self
     }
 
@@ -402,8 +411,8 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let size = limits.resolve(self.width, self.height, Size::ZERO);
-        let state = tree.state.downcast_mut::<State>();
+        let node = layout::atomic(limits, self.width, self.height);
+        //limits.resolve(self.width, self.height, Size::ZERO);
 
         let x_range = match &self.x_range {
             AxisRange::Custom(range) => range,
@@ -415,7 +424,7 @@ where
             AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::Y_RANGE_DEFAULT),
         };
 
-        let node = layout::Node::new(size);
+        //let node = layout::Node::new(size);
         let bounds = node.bounds();
 
         let font_size: f32 = self
@@ -434,6 +443,7 @@ where
             y: cartesian::Axis::new(y_range, y_margin_min, y_margin_max, bounds.height),
         };
 
+        let state = tree.state.downcast_mut::<State>();
         state.plane = Some(plane);
 
         node
@@ -519,7 +529,9 @@ where
             })
         });
 
-        renderer.draw_geometry(geometry);
+        renderer.with_translation(Vector::new(bounds.x, bounds.y), |renderer| {
+            renderer.draw_geometry(geometry)
+        });
     }
 
     #[inline]
@@ -575,6 +587,16 @@ where
                     return event::Status::Captured;
                 }
             }
+
+            if let Some(message) = self.on_scroll.as_ref() {
+                if let iced::Event::Mouse(mouse::Event::WheelScrolled { delta }) = event {
+                    state.scroll_delta = Some(delta);
+
+                    shell.publish(message(state));
+
+                    return event::Status::Captured;
+                }
+            }
         }
         event::Status::Ignored
     }
@@ -597,6 +619,7 @@ pub struct State {
     plane: Option<Plane>,
     prev_position: Option<Point>,
     cursor_position: Option<Point>,
+    scroll_delta: Option<ScrollDelta>,
 }
 
 impl State {
@@ -616,6 +639,10 @@ impl State {
         let pos = self.cursor_position?;
 
         self.plane.as_ref().map(|p| p.get_offset(pos))
+    }
+
+    pub fn scroll_delta(&self) -> Option<ScrollDelta> {
+        self.scroll_delta
     }
 }
 
