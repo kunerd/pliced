@@ -384,59 +384,71 @@ where
     }
 
     fn draw_data(&self, frame: &mut canvas::Frame, plane: &Plane) {
-        frame.with_save(|frame| {
-            self.scale(plane, frame);
+        for series in &self.series {
+            match series {
+                Series::Line(line_series) => frame.with_save(|frame| {
+                    self.scale(plane, frame);
 
-            for series in &self.series {
-                let path = match series {
-                    Series::Line(line_series) => {
-                        let mut iter = line_series.data.iter();
-                        let path = Path::new(|b| {
-                            if let Some(p) = iter.next() {
-                                b.move_to(Point { x: p.0, y: p.1 });
-                                iter.fold(b, |acc, p| {
-                                    acc.line_to(Point { x: p.0, y: p.1 });
-                                    acc
-                                });
-                            }
-                        });
-                        Some((path, line_series.color))
-                    }
-                    Series::Point(point_series) => {
-                        let radius = 2.0;
-                        let mut iter = point_series.data.iter();
+                    let mut iter = line_series.data.iter().filter(|(x, y)| {
+                        x >= &plane.x.min
+                            && x <= &plane.x.max
+                            && y >= &plane.y.min
+                            && y <= &plane.y.max
+                    });
 
-                        let path = Path::new(|b| {
-                            if let Some(p) = iter.next() {
-                                let point = Point { x: p.0, y: p.1 };
-                                b.circle(point, radius);
-                                iter.fold(b, |acc, p| {
-                                    let point = Point { x: p.0, y: p.1 };
-                                    acc.circle(point, radius);
-                                    acc
-                                });
-                            }
-                        })
-                        .transform(&Transform2D::new(
-                            radius / plane.x.scale,
-                            0.0,
-                            0.0,
-                            radius / plane.y.scale,
-                            0.0,
-                            0.0,
-                        ));
-                        Some((path, point_series.color))
-                    }
-                };
+                    let path = Path::new(|b| {
+                        if let Some(p) = iter.next() {
+                            b.move_to(Point { x: p.0, y: p.1 });
+                            iter.fold(b, |acc, p| {
+                                acc.line_to(Point { x: p.0, y: p.1 });
+                                acc
+                            });
+                        }
+                    });
 
-                if let Some((path, color)) = path {
                     frame.stroke(
                         &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-                        Stroke::default().with_width(2.0).with_color(color),
+                        Stroke::default()
+                            .with_width(2.0)
+                            .with_color(line_series.color),
+                    );
+                }),
+
+                Series::Point(point_series) => {
+                    let radius = 4.0;
+                    let mut iter = point_series.data.iter().filter(|(x, y)| {
+                        x >= &plane.x.min
+                            && x <= &plane.x.max
+                            && y >= &plane.y.min
+                            && y <= &plane.y.max
+                    });
+
+                    let path = Path::new(|b| {
+                        if let Some(p) = iter.next() {
+                            let point = Point {
+                                x: plane.scale_to_cartesian_x(p.0),
+                                y: plane.scale_to_cartesian_y(p.1),
+                            };
+                            b.circle(point, radius);
+                            iter.fold(b, |acc, p| {
+                                let point = Point {
+                                    x: plane.scale_to_cartesian_x(p.0),
+                                    y: plane.scale_to_cartesian_y(p.1),
+                                };
+                                acc.circle(point, radius);
+                                acc
+                            });
+                        }
+                    });
+                    frame.stroke(
+                        &path,
+                        Stroke::default()
+                            .with_width(2.0)
+                            .with_color(point_series.color),
                     );
                 }
-            }
-        })
+            };
+        }
     }
 }
 
