@@ -2,6 +2,7 @@ mod cartesian;
 
 use crate::series::Series;
 use core::f32;
+use std::collections::BTreeMap;
 
 use cartesian::Plane;
 use iced::advanced::graphics::geometry::Renderer as _;
@@ -16,15 +17,17 @@ use iced::widget::text::Shaping;
 use iced::{alignment, event, touch, Font, Renderer, Vector};
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use iced::{Pixels, Point};
+use ordered_float::OrderedFloat;
 
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
-type StateFn<'a, Message> = Box<dyn Fn(&State) -> Message + 'a>;
+type StateFn<'a, Message, Id> = Box<dyn Fn(&State<Id>) -> Message + 'a>;
 
-pub struct Chart<'a, Message, Theme = iced::Theme>
+pub struct Chart<'a, Message, Id, Theme = iced::Theme>
 where
     Message: Clone,
+    Id: Clone,
 {
     width: Length,
     height: Length,
@@ -44,13 +47,15 @@ where
     x_range: AxisRange<RangeInclusive<f32>>,
     y_range: AxisRange<RangeInclusive<f32>>,
 
-    series: Vec<Series>,
+    items: BTreeMap<OrderedFloat<f32>, BTreeMap<OrderedFloat<f32>, (Id, usize)>>,
+
+    series: Vec<Series<Id>>,
     cache: canvas::Cache,
 
-    on_move: Option<StateFn<'a, Message>>,
-    on_press: Option<StateFn<'a, Message>>,
-    on_release: Option<StateFn<'a, Message>>,
-    on_scroll: Option<StateFn<'a, Message>>,
+    on_move: Option<StateFn<'a, Message, Id>>,
+    on_press: Option<StateFn<'a, Message, Id>>,
+    on_release: Option<StateFn<'a, Message, Id>>,
+    on_scroll: Option<StateFn<'a, Message, Id>>,
     //on_right_press: Option<Message>,
     //on_right_release: Option<Message>,
     //on_middle_press: Option<Message>,
@@ -62,9 +67,10 @@ where
     theme_: PhantomData<Theme>,
 }
 
-impl<'a, Message, Theme> Chart<'a, Message, Theme>
+impl<'a, Message, Id, Theme> Chart<'a, Message, Id, Theme>
 where
     Message: Clone,
+    Id: Clone,
 {
     const X_RANGE_DEFAULT: RangeInclusive<f32> = 0.0..=10.0;
     const Y_RANGE_DEFAULT: RangeInclusive<f32> = 0.0..=10.0;
@@ -88,6 +94,8 @@ where
 
             x_range: AxisRange::default(),
             y_range: AxisRange::default(),
+
+            items: BTreeMap::new(),
 
             series: Vec::new(),
             cache: canvas::Cache::new(),
@@ -162,7 +170,7 @@ where
         self
     }
 
-    pub fn push_series(mut self, series: impl Into<Series>) -> Self {
+    pub fn push_series(mut self, series: impl Into<Series<Id>>) -> Self {
         let series = series.into();
 
         if let AxisRange::Automatic(x_range) = self.x_range {
@@ -209,6 +217,18 @@ where
             self.y_range = AxisRange::Automatic(Some(y_min..=y_max));
         }
 
+        if let Series::Point(series) = &series {
+            if let Some(id) = &series.id {
+                for (index, p) in series.data.iter().enumerate() {
+                    self.items.entry(OrderedFloat(p.0)).or_insert_with(|| {
+                        let mut map = BTreeMap::new();
+                        map.insert(OrderedFloat(p.1), (id.clone(), index));
+                        map
+                    });
+                }
+            }
+        }
+
         self.series.push(series);
 
         self
@@ -216,27 +236,27 @@ where
 
     pub fn extend_series(
         self,
-        series_list: impl IntoIterator<Item = impl Into<Series>> + Clone,
+        series_list: impl IntoIterator<Item = impl Into<Series<Id>>> + Clone,
     ) -> Self {
         series_list.into_iter().fold(self, Self::push_series)
     }
 
-    pub fn on_press(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
+    pub fn on_press(mut self, msg: impl Fn(&State<Id>) -> Message + 'a) -> Self {
         self.on_press = Some(Box::new(msg));
         self
     }
 
-    pub fn on_release(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
+    pub fn on_release(mut self, msg: impl Fn(&State<Id>) -> Message + 'a) -> Self {
         self.on_release = Some(Box::new(msg));
         self
     }
 
-    pub fn on_move(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
+    pub fn on_move(mut self, msg: impl Fn(&State<Id>) -> Message + 'a) -> Self {
         self.on_move = Some(Box::new(msg));
         self
     }
 
-    pub fn on_scroll(mut self, msg: impl Fn(&State) -> Message + 'a) -> Self {
+    pub fn on_scroll(mut self, msg: impl Fn(&State<Id>) -> Message + 'a) -> Self {
         self.on_scroll = Some(Box::new(msg));
         self
     }
@@ -452,20 +472,21 @@ where
     }
 }
 
-impl<Message, Theme> Widget<Message, Theme, Renderer> for Chart<'_, Message, Theme>
+impl<Message, Id, Theme> Widget<Message, Theme, Renderer> for Chart<'_, Message, Id, Theme>
 where
     Message: Clone,
+    Id: Clone + 'static,
 {
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
     }
 
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State>()
+        tree::Tag::of::<State<Id>>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State::default())
+        tree::State::new(State::<Id>::default())
     }
 
     fn children(&self) -> Vec<Tree> {
@@ -503,7 +524,7 @@ where
 
         let x_margin_min = self.margin.left;
         let x_margin_max = self.margin.right;
-        let y_margin_min = self.margin.bottom + font_size;
+        let y_margin_min = self.margin.bottom;
         let y_margin_max = self.margin.top;
 
         let plane = Plane {
@@ -511,7 +532,7 @@ where
             y: cartesian::Axis::new(y_range, y_margin_min, y_margin_max, bounds.height),
         };
 
-        let state = tree.state.downcast_mut::<State>();
+        let state = tree.state.downcast_mut::<State<Id>>();
         state.plane = Some(plane);
 
         node
@@ -533,7 +554,7 @@ where
             return;
         }
 
-        let state: &State = tree.state.downcast_ref();
+        let state: &State<Id> = tree.state.downcast_ref();
         let Some(plane) = &state.plane else {
             return;
         };
@@ -567,7 +588,7 @@ where
 
         let bounds = layout.bounds();
 
-        let state: &mut State = tree.state.downcast_mut();
+        let state: &mut State<Id> = tree.state.downcast_mut();
         let relative_position = cursor_position - Vector::new(bounds.x, bounds.y);
         state.prev_position = state.cursor_position;
         state.cursor_position = Some(relative_position);
@@ -598,6 +619,25 @@ where
                 if let iced::Event::Mouse(mouse::Event::CursorMoved { .. })
                 | iced::Event::Touch(touch::Event::FingerMoved { .. }) = event
                 {
+                    if let (Some(coords), Some(plane)) = (state.get_coords(), &state.plane) {
+                        let box_width = 10.0;
+                        let range = OrderedFloat(coords.x - box_width / plane.x.scale)
+                            ..OrderedFloat(coords.x + box_width / plane.x.scale);
+
+                        let mut items = vec![];
+                        for (_, bucket) in self.items.range(range) {
+                            let range = OrderedFloat(coords.y - box_width / plane.y.scale)
+                                ..OrderedFloat(coords.y + box_width / plane.y.scale);
+
+                            let item_list = bucket
+                                .range(range)
+                                .map(|(_key, (id, index))| (id.clone(), *index));
+
+                            items.extend(item_list);
+                        }
+                        state.item_list = Some(items);
+                    }
+
                     shell.publish(message(state));
 
                     return event::Status::Captured;
@@ -630,15 +670,21 @@ where
 }
 
 /// Local state of the [`Chart`].
-#[derive(Default)]
-pub struct State {
+pub struct State<Id>
+where
+    Id: Clone,
+{
     plane: Option<Plane>,
     prev_position: Option<Point>,
     cursor_position: Option<Point>,
     scroll_delta: Option<ScrollDelta>,
+    item_list: Option<Vec<(Id, usize)>>,
 }
 
-impl State {
+impl<Id> State<Id>
+where
+    Id: Clone,
+{
     pub fn get_cursor_position(&self) -> Option<Point> {
         self.cursor_position
     }
@@ -660,14 +706,34 @@ impl State {
     pub fn scroll_delta(&self) -> Option<ScrollDelta> {
         self.scroll_delta
     }
+
+    pub fn items(&self) -> Option<&Vec<(Id, usize)>> {
+        self.item_list.as_ref()
+    }
 }
 
-impl<'a, Message, Theme> From<Chart<'a, Message, Theme>> for Element<'a, Message, Theme>
+impl<Id> Default for State<Id>
+where
+    Id: Clone,
+{
+    fn default() -> Self {
+        Self {
+            plane: Default::default(),
+            prev_position: Default::default(),
+            cursor_position: Default::default(),
+            scroll_delta: Default::default(),
+            item_list: Default::default(),
+        }
+    }
+}
+
+impl<'a, Message, Id, Theme> From<Chart<'a, Message, Id, Theme>> for Element<'a, Message, Theme>
 where
     Message: 'a + Clone,
     Theme: 'a,
+    Id: 'static + Clone,
 {
-    fn from(chart: Chart<'a, Message, Theme>) -> Element<'a, Message, Theme, Renderer> {
+    fn from(chart: Chart<'a, Message, Id, Theme>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(chart)
     }
 }
