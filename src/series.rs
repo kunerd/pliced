@@ -1,6 +1,5 @@
 use iced::Color;
 
-#[derive(Clone)]
 pub enum Series<ID>
 where
     ID: Clone,
@@ -38,7 +37,6 @@ where
     }
 }
 
-#[derive(Clone)]
 pub struct PointSeries<ID>
 where
     ID: Clone,
@@ -46,6 +44,7 @@ where
     pub data: Vec<(f32, f32)>,
     pub color: Color,
     pub id: Option<ID>,
+    pub style_fn: Option<Box<dyn Fn(usize) -> f32>>,
 }
 
 impl<ID> PointSeries<ID>
@@ -57,11 +56,17 @@ where
             data: iter.into_iter().collect(),
             color: Color::BLACK,
             id: None,
+            style_fn: None,
         }
     }
 
     pub fn color(mut self, color: impl Into<Color>) -> Self {
         self.color = color.into();
+        self
+    }
+
+    pub fn style(mut self, style_fn: impl Fn(usize) -> f32 + 'static) -> Self {
+        self.style_fn = Some(Box::new(style_fn));
         self
     }
 

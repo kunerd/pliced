@@ -20,7 +20,7 @@ enum Message {
 #[derive(Debug)]
 struct App {
     data: Vec<(f32, f32)>,
-    selected_item: Option<usize>
+    selected_item: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +40,13 @@ impl App {
     pub fn new() -> (Self, Task<Message>) {
         let data = vec![(0.0, 0.0), (1.0, 1.0), (2.0, 1.0), (3.0, 0.0)];
 
-        (Self { data }, Task::none())
+        (
+            Self {
+                data,
+                selected_item: None,
+            },
+            Task::none(),
+        )
     }
 
     pub fn title(&self) -> String {
@@ -49,20 +55,17 @@ impl App {
 
     pub fn update(&mut self, msg: Message) -> Task<Message> {
         match &msg {
-            Message::OnMove(pos) => {
-                let Some(pos) = pos else {
-                    dbg!("no pos: {:?}", &msg);
-                    return Task::none();
-                };
-
-                dbg!(pos);
+            Message::OnMove(Some(items)) => {
+                self.selected_item = items.first().map(|(_, index)| *index)
             }
+            _ => {}
         }
         Task::none()
     }
 
     pub fn view(&self) -> Element<'_, Message> {
         let palette = self.theme().palette();
+        let selected_item = self.selected_item;
         container(
             Chart::new()
                 .width(Length::Fill)
@@ -75,6 +78,13 @@ impl App {
                 .push_series(
                     point_series(self.data.iter().copied())
                         .color(palette.danger)
+                        .style(move |index| {
+                            if Some(index) == selected_item {
+                                10.0
+                            } else {
+                                4.0
+                            }
+                        })
                         .with_id(ItemId::PointList),
                 )
                 .on_move(|state: &pliced::chart::State<ItemId>| {

@@ -435,22 +435,32 @@ where
                 }),
 
                 Series::Point(point_series) => {
-                    let radius = 4.0;
-                    let mut iter = point_series.data.iter().filter(|(x, y)| {
+                    let mut iter = point_series.data.iter().enumerate().filter(|(_i, (x, y))| {
                         x >= &plane.x.min
                             && x <= &plane.x.max
                             && y >= &plane.y.min
                             && y <= &plane.y.max
                     });
 
+                    const DEFAULT_RADIUS: f32 = 4.0;
                     let path = Path::new(|b| {
-                        if let Some(p) = iter.next() {
+                        if let Some((i, p)) = iter.next() {
+                            let radius = point_series
+                                .style_fn
+                                .as_ref()
+                                .map(|func| func(i))
+                                .unwrap_or(DEFAULT_RADIUS);
                             let point = Point {
                                 x: plane.scale_to_cartesian_x(p.0),
                                 y: plane.scale_to_cartesian_y(p.1),
                             };
                             b.circle(point, radius);
-                            iter.fold(b, |acc, p| {
+                            iter.fold(b, |acc, (i, p)| {
+                                let radius = point_series
+                                    .style_fn
+                                .as_ref()
+                                    .map(|func| func(i))
+                                    .unwrap_or(DEFAULT_RADIUS);
                                 let point = Point {
                                     x: plane.scale_to_cartesian_x(p.0),
                                     y: plane.scale_to_cartesian_y(p.1),
