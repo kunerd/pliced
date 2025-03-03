@@ -2,8 +2,8 @@
 
 An experimental `Chart` widget for [iced](https://github.com/iced-rs/iced).
 
-Currently this is in a very early stage and uses [plotters](https://github.com/plotters-rs/plotters) as backend,
-but that may change.
+Currently there are two chart implementations, one using [plotters](https://github.com/plotters-rs/plotters) as backend and 
+an iced native implementation.
 
 ## Usage
 There are two ways to use this library. You can just use the provided chart widget:
