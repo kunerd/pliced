@@ -23,6 +23,9 @@ use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
 type StateFn<'a, Message, Id> = Box<dyn Fn(&State<Id>) -> Message + 'a>;
+type BTreeMapFloat<V> = BTreeMap<OrderedFloat<f32>, V>;
+
+pub struct Items<SeriesId, ItemId>(BTreeMapFloat<BTreeMapFloat<(SeriesId, ItemId)>>);
 
 pub struct Chart<'a, Message, Id, Theme = iced::Theme>
 where
@@ -47,7 +50,7 @@ where
     x_range: AxisRange<RangeInclusive<f32>>,
     y_range: AxisRange<RangeInclusive<f32>>,
 
-    items: BTreeMap<OrderedFloat<f32>, BTreeMap<OrderedFloat<f32>, (Id, usize)>>,
+    items: Items<Id, usize>,
 
     series: Vec<Series<Id>>,
     cache: canvas::Cache,
@@ -95,7 +98,7 @@ where
             x_range: AxisRange::default(),
             y_range: AxisRange::default(),
 
-            items: BTreeMap::new(),
+            items: Items(BTreeMap::new()),
 
             series: Vec::new(),
             cache: canvas::Cache::new(),
@@ -220,7 +223,7 @@ where
         if let Series::Point(series) = &series {
             if let Some(id) = &series.id {
                 for (index, p) in series.data.iter().enumerate() {
-                    self.items.entry(OrderedFloat(p.0)).or_insert_with(|| {
+                    self.items.0.entry(OrderedFloat(p.0)).or_insert_with(|| {
                         let mut map = BTreeMap::new();
                         map.insert(OrderedFloat(p.1), (id.clone(), index));
                         map
@@ -458,7 +461,7 @@ where
                             iter.fold(b, |acc, (i, p)| {
                                 let radius = point_series
                                     .style_fn
-                                .as_ref()
+                                    .as_ref()
                                     .map(|func| func(i))
                                     .unwrap_or(DEFAULT_RADIUS);
                                 let point = Point {
@@ -635,7 +638,7 @@ where
                             ..OrderedFloat(coords.x + box_width / plane.x.scale);
 
                         let mut items = vec![];
-                        for (_, bucket) in self.items.range(range) {
+                        for (_, bucket) in self.items.0.range(range) {
                             let range = OrderedFloat(coords.y - box_width / plane.y.scale)
                                 ..OrderedFloat(coords.y + box_width / plane.y.scale);
 
