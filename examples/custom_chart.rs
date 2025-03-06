@@ -136,12 +136,10 @@ impl App {
                 //.y_range(-1.0..=1.0)
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary))
                 .push_series(
-                    line_series(self.data.iter().copied().map(|(x, y)| (x, y * 0.5)))
-                        .color(palette.success),
+                    line_series(self.data.iter().map(|(x, y)| (x, y * 0.5))).color(palette.success),
                 )
                 .push_series(
-                    point_series(self.data.iter().copied().map(|(x, y)| (x, y * 1.2)))
-                        .color(palette.danger),
+                    point_series(self.data.iter().map(|(x, y)| (x, y * 1.2))).color(palette.danger),
                 )
                 .on_press(|state| Message::MouseDown(state.get_offset()))
                 .on_release(|state| Message::MouseUp(state.get_offset()))
