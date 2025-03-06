@@ -14,7 +14,7 @@ use iced::mouse::ScrollDelta;
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
-use iced::{alignment, event, touch, Font, Renderer, Vector};
+use iced::{alignment, event, touch, Font, Renderer, Transformation, Vector};
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use iced::{Pixels, Point};
 use ordered_float::OrderedFloat;
@@ -27,10 +27,53 @@ type BTreeMapFloat<V> = BTreeMap<OrderedFloat<f32>, V>;
 
 pub struct Items<SeriesId, ItemId>(BTreeMapFloat<BTreeMapFloat<(SeriesId, ItemId)>>);
 
-pub struct Chart<'a, Message, Id, Theme = iced::Theme>
+impl<SeriesId> Items<SeriesId, usize>
+where
+    SeriesId: Clone,
+{
+    pub fn add_series<Data>(&mut self, series: &Series<SeriesId, Data>)
+    where
+        Data: IntoIterator + Clone,
+        Data::Item: Into<(f32, f32)>,
+    {
+        if let Series::Point(series) = series {
+            if let Some(id) = &series.id {
+                for (index, item) in series.data.clone().into_iter().enumerate() {
+                    let (x, y) = item.into();
+                    self.0.entry(OrderedFloat(x)).or_insert_with(|| {
+                        let mut map = BTreeMap::new();
+                        map.insert(OrderedFloat(y), (id.clone(), index));
+                        map
+                    });
+                }
+            }
+        }
+    }
+
+    pub fn collision(&self, rect: Rectangle) -> Vec<(SeriesId, usize)> {
+        let range = OrderedFloat(rect.x)..OrderedFloat(rect.x + rect.width);
+
+        let mut items = vec![];
+        for (_, bucket) in self.0.range(range) {
+            let range = OrderedFloat(rect.y)..OrderedFloat(rect.y + rect.height);
+
+            let item_list = bucket
+                .range(range)
+                .map(|(_key, (id, index))| (id.clone(), *index));
+
+            items.extend(item_list);
+        }
+
+        items
+    }
+}
+
+pub struct Chart<'a, Message, Id, Data, Theme = iced::Theme>
 where
     Message: Clone,
     Id: Clone,
+    //Data: IntoIterator + Clone,
+    //Data::Item: Into<(f32, f32)>,
 {
     width: Length,
     height: Length,
@@ -52,7 +95,7 @@ where
 
     items: Items<Id, usize>,
 
-    series: Vec<Series<Id>>,
+    series: Vec<Series<Id, Data>>,
     cache: canvas::Cache,
 
     on_move: Option<StateFn<'a, Message, Id>>,
@@ -70,10 +113,12 @@ where
     theme_: PhantomData<Theme>,
 }
 
-impl<'a, Message, Id, Theme> Chart<'a, Message, Id, Theme>
+impl<'a, Message, Id, Data, Theme> Chart<'a, Message, Id, Data, Theme>
 where
     Message: Clone,
     Id: Clone,
+    Data: IntoIterator + Clone,
+    Data::Item: Into<(f32, f32)>,
 {
     const X_RANGE_DEFAULT: RangeInclusive<f32> = 0.0..=10.0;
     const Y_RANGE_DEFAULT: RangeInclusive<f32> = 0.0..=10.0;
@@ -98,7 +143,7 @@ where
             x_range: AxisRange::default(),
             y_range: AxisRange::default(),
 
-            items: Items(BTreeMap::new()),
+            items: Items(BTreeMapFloat::new()),
 
             series: Vec::new(),
             cache: canvas::Cache::new(),
@@ -173,7 +218,7 @@ where
         self
     }
 
-    pub fn push_series(mut self, series: impl Into<Series<Id>>) -> Self {
+    pub fn push_series(mut self, series: impl Into<Series<Id, Data>>) -> Self {
         let series = series.into();
 
         if let AxisRange::Automatic(x_range) = self.x_range {
@@ -186,12 +231,13 @@ where
 
             let (x_min, x_max) = {
                 let iter = match &series {
-                    Series::Line(line_series) => line_series.data.iter(),
-                    Series::Point(point_series) => point_series.data.iter(),
+                    //Series::Line(line_series) => line_series.data.into_iter(),
+                    Series::Line(series) => series.data.clone().into_iter().map(Into::into),
+                    Series::Point(series) => series.data.clone().into_iter().map(Into::into),
                 };
 
                 iter.fold((x_min_cur, x_max_cur), |(x_min, x_max), (cur_x, _)| {
-                    (x_min.min(*cur_x), x_max.max(*cur_x))
+                    (x_min.min(cur_x), x_max.max(cur_x))
                 })
             };
 
@@ -208,41 +254,32 @@ where
 
             let (y_min, y_max) = {
                 let iter = match &series {
-                    Series::Line(line_series) => line_series.data.iter(),
-                    Series::Point(point_series) => point_series.data.iter(),
+                    Series::Line(series) => series.data.clone().into_iter().map(Into::into),
+                    Series::Point(point_series) => {
+                        point_series.data.clone().into_iter().map(Into::into)
+                    }
                 };
 
                 iter.fold((y_min_cur, y_max_cur), |(y_min, y_max), (_, cur_y)| {
-                    (y_min.min(*cur_y), y_max.max(*cur_y))
+                    (y_min.min(cur_y), y_max.max(cur_y))
                 })
             };
 
             self.y_range = AxisRange::Automatic(Some(y_min..=y_max));
         }
 
-        if let Series::Point(series) = &series {
-            if let Some(id) = &series.id {
-                for (index, p) in series.data.iter().enumerate() {
-                    self.items.0.entry(OrderedFloat(p.0)).or_insert_with(|| {
-                        let mut map = BTreeMap::new();
-                        map.insert(OrderedFloat(p.1), (id.clone(), index));
-                        map
-                    });
-                }
-            }
-        }
-
+        self.items.add_series(&series);
         self.series.push(series);
 
         self
     }
 
-    pub fn extend_series(
-        self,
-        series_list: impl IntoIterator<Item = impl Into<Series<Id>>> + Clone,
-    ) -> Self {
-        series_list.into_iter().fold(self, Self::push_series)
-    }
+    //pub fn extend_series(
+    //    self,
+    //    series_list: impl IntoIterator<Item = impl Into<Series<'a, Id, Vec<&'a (f32, f32)>>> + Clone,
+    //) -> Self {
+    //    series_list.into_iter().fold(self, Self::push_series)
+    //}
 
     pub fn on_press(mut self, msg: impl Fn(&State<Id>) -> Message + 'a) -> Self {
         self.on_press = Some(Box::new(msg));
@@ -409,41 +446,51 @@ where
     fn draw_data(&self, frame: &mut canvas::Frame, plane: &Plane) {
         for series in &self.series {
             match series {
-                Series::Line(line_series) => frame.with_save(|frame| {
-                    self.scale(plane, frame);
+                Series::Line(line_series) => {
+                    frame.with_save(|frame| {
+                        self.scale(plane, frame);
 
-                    let mut iter = line_series.data.iter().filter(|(x, y)| {
-                        x >= &plane.x.min
-                            && x <= &plane.x.max
-                            && y >= &plane.y.min
-                            && y <= &plane.y.max
-                    });
+                        let mut iter = line_series.data.clone().into_iter().map(Into::into).filter(
+                            |(x, y)| {
+                                x >= &plane.x.min
+                                    && x <= &plane.x.max
+                                    && y >= &plane.y.min
+                                    && y <= &plane.y.max
+                            },
+                        );
 
-                    let path = Path::new(|b| {
-                        if let Some(p) = iter.next() {
-                            b.move_to(Point { x: p.0, y: p.1 });
-                            iter.fold(b, |acc, p| {
-                                acc.line_to(Point { x: p.0, y: p.1 });
-                                acc
-                            });
-                        }
-                    });
+                        let path = Path::new(|b| {
+                            if let Some(p) = iter.next() {
+                                b.move_to(Point { x: p.0, y: p.1 });
+                                iter.fold(b, |acc, p| {
+                                    acc.line_to(Point { x: p.0, y: p.1 });
+                                    acc
+                                });
+                            }
+                        });
 
-                    frame.stroke(
-                        &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-                        Stroke::default()
-                            .with_width(2.0)
-                            .with_color(line_series.color),
-                    );
-                }),
+                        frame.stroke(
+                            &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
+                            Stroke::default()
+                                .with_width(2.0)
+                                .with_color(line_series.color),
+                        );
+                    })
+                }
 
                 Series::Point(point_series) => {
-                    let mut iter = point_series.data.iter().enumerate().filter(|(_i, (x, y))| {
-                        x >= &plane.x.min
-                            && x <= &plane.x.max
-                            && y >= &plane.y.min
-                            && y <= &plane.y.max
-                    });
+                    let mut iter = point_series
+                        .data
+                        .clone()
+                        .into_iter()
+                        .map(Into::into)
+                        .enumerate()
+                        .filter(|(_i, (x, y))| {
+                            x >= &plane.x.min
+                                && x <= &plane.x.max
+                                && y >= &plane.y.min
+                                && y <= &plane.y.max
+                        });
 
                     const DEFAULT_RADIUS: f32 = 4.0;
                     let path = Path::new(|b| {
@@ -485,10 +532,13 @@ where
     }
 }
 
-impl<Message, Id, Theme> Widget<Message, Theme, Renderer> for Chart<'_, Message, Id, Theme>
+impl<Message, Id, Data, Theme> Widget<Message, Theme, Renderer>
+    for Chart<'_, Message, Id, Data, Theme>
 where
     Message: Clone,
     Id: Clone + 'static,
+    Data: IntoIterator + Clone,
+    Data::Item: Into<(f32, f32)>,
 {
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
@@ -634,21 +684,15 @@ where
                 {
                     if let (Some(coords), Some(plane)) = (state.get_coords(), &state.plane) {
                         let box_width = 10.0;
-                        let range = OrderedFloat(coords.x - box_width / plane.x.scale)
-                            ..OrderedFloat(coords.x + box_width / plane.x.scale);
-
-                        let mut items = vec![];
-                        for (_, bucket) in self.items.0.range(range) {
-                            let range = OrderedFloat(coords.y - box_width / plane.y.scale)
-                                ..OrderedFloat(coords.y + box_width / plane.y.scale);
-
-                            let item_list = bucket
-                                .range(range)
-                                .map(|(_key, (id, index))| (id.clone(), *index));
-
-                            items.extend(item_list);
-                        }
-                        state.item_list = Some(items);
+                        let top_left = Point::new(
+                            coords.x - box_width / 2.0 / plane.x.scale,
+                            coords.y - box_width / 2.0 / plane.y.scale,
+                        );
+                        let rect = Rectangle::new(
+                            top_left,
+                            Size::new(box_width / plane.x.scale, box_width / plane.y.scale),
+                        );
+                        state.item_list = Some(self.items.collision(rect));
                     }
 
                     shell.publish(message(state));
@@ -740,13 +784,16 @@ where
     }
 }
 
-impl<'a, Message, Id, Theme> From<Chart<'a, Message, Id, Theme>> for Element<'a, Message, Theme>
+impl<'a, Message, Id, Data, Theme> From<Chart<'a, Message, Id, Data, Theme>>
+    for Element<'a, Message, Theme>
 where
     Message: 'a + Clone,
     Theme: 'a,
     Id: 'static + Clone,
+    Data: 'a + IntoIterator + Clone,
+    Data::Item: Into<(f32, f32)>,
 {
-    fn from(chart: Chart<'a, Message, Id, Theme>) -> Element<'a, Message, Theme, Renderer> {
+    fn from(chart: Chart<'a, Message, Id, Data, Theme>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(chart)
     }
 }

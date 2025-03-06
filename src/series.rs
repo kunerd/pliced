@@ -1,23 +1,25 @@
 use iced::Color;
 
-pub enum Series<ID>
+pub enum Series<ID, Data>
 where
     ID: Clone,
+    //Data: IntoIterator + Clone,
+    //Data::Item: Into<(f32, f32)>,
 {
-    Line(LineSeries),
-    Point(PointSeries<ID>),
+    Line(LineSeries<Data>),
+    Point(PointSeries<ID, Data>),
 }
 
 #[derive(Clone)]
-pub struct LineSeries {
-    pub data: Vec<(f32, f32)>,
+pub struct LineSeries<Data> {
+    pub data: Data,
     pub color: Color,
 }
 
-impl LineSeries {
-    pub fn new(iter: impl IntoIterator<Item = (f32, f32)>) -> Self {
+impl<Data> LineSeries<Data> {
+    pub fn new(data: Data) -> Self {
         Self {
-            data: iter.into_iter().collect(),
+            data,
             color: Color::BLACK,
         }
     }
@@ -28,32 +30,38 @@ impl LineSeries {
     }
 }
 
-impl<ID> From<LineSeries> for Series<ID>
+impl<ID, Data> From<LineSeries<Data>> for Series<ID, Data>
 where
     ID: Clone,
+    //Data: IntoIterator + Clone,
+    //Data::Item: Into<(f32, f32)>,
 {
-    fn from(line_series: LineSeries) -> Self {
+    fn from(line_series: LineSeries<Data>) -> Self {
         Self::Line(line_series)
     }
 }
 
-pub struct PointSeries<ID>
+pub struct PointSeries<ID, Data>
 where
     ID: Clone,
+    //Data: IntoIterator + Clone,
+    //Data::Item: Into<(f32, f32)>,
 {
-    pub data: Vec<(f32, f32)>,
+    pub data: Data,
     pub color: Color,
     pub id: Option<ID>,
     pub style_fn: Option<Box<dyn Fn(usize) -> f32>>,
 }
 
-impl<ID> PointSeries<ID>
+impl<ID, Data> PointSeries<ID, Data>
 where
     ID: Clone,
+    //Data: IntoIterator + Clone,
+    //Data::Item: Into<(f32, f32)>,
 {
-    pub fn new(iter: impl IntoIterator<Item = (f32, f32)>) -> Self {
+    pub fn new(data: Data) -> Self {
         Self {
-            data: iter.into_iter().collect(),
+            data,
             color: Color::BLACK,
             id: None,
             style_fn: None,
@@ -76,19 +84,26 @@ where
     }
 }
 
-impl<ID> From<PointSeries<ID>> for Series<ID>
+impl<ID, Data> From<PointSeries<ID, Data>> for Series<ID, Data>
 where
     ID: Clone,
+    //Data: IntoIterator + Clone,
+    //Data::Item: Into<(f32, f32)>,
 {
-    fn from(point_series: PointSeries<ID>) -> Self {
+    fn from(point_series: PointSeries<ID, Data>) -> Self {
         Self::Point(point_series)
     }
 }
 
-pub fn line_series(iter: impl IntoIterator<Item = (f32, f32)>) -> LineSeries {
-    LineSeries::new(iter)
+pub fn line_series<Data>(data: Data) -> LineSeries<Data> {
+    LineSeries::new(data)
 }
 
-pub fn point_series<ID: Clone>(iter: impl IntoIterator<Item = (f32, f32)>) -> PointSeries<ID> {
-    PointSeries::new(iter)
+pub fn point_series<ID, Data>(data: Data) -> PointSeries<ID, Data>
+where
+    ID: Clone,
+    //Data: IntoIterator + Clone,
+    //Data::Item: Into<(f32, f32)>,
+{
+    PointSeries::new(data)
 }
