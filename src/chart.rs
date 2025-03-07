@@ -94,7 +94,7 @@ where
     y_labels: Labels<'a>,
 
     x_range: Option<RangeInclusive<f32>>,
-    y_range: AxisRange<RangeInclusive<f32>>,
+    y_range: Option<RangeInclusive<f32>>,
 
     items: Items<Id, usize>,
 
@@ -142,7 +142,7 @@ where
             y_labels: Labels::default(),
 
             x_range: None,
-            y_range: AxisRange::default(),
+            y_range: None,
 
             items: Items(BTreeMapFloat::new()),
 
@@ -185,7 +185,7 @@ where
     }
 
     pub fn y_range(mut self, range: RangeInclusive<f32>) -> Self {
-        self.y_range = AxisRange::Custom(range);
+        self.y_range = Some(range);
         self
     }
 
@@ -550,6 +550,26 @@ where
 
         max.unwrap_or(Self::X_RANGE_DEFAULT)
     }
+
+    fn compute_y_range_from_series(&self) -> RangeInclusive<f32> {
+        let mut max: Option<RangeInclusive<f32>> = None;
+
+        for series in &self.series {
+            let cur = series.y_range();
+
+            max = match max {
+                Some(max) => {
+                    let min = max.start().min(*cur.start());
+                    let max = max.end().max(*cur.end());
+
+                    Some(min..=max)
+                }
+                None => Some(cur),
+            }
+        }
+
+        max.unwrap_or(Self::Y_RANGE_DEFAULT)
+    }
 }
 
 impl<Message, Id, Theme> Widget<Message, Theme, Renderer> for Chart<'_, Message, Id, Theme>
@@ -589,8 +609,8 @@ where
         };
 
         let y_range = match &self.y_range {
-            AxisRange::Custom(range) => range,
-            AxisRange::Automatic(range) => range.as_ref().unwrap_or(&Self::Y_RANGE_DEFAULT),
+            Some(range) => range,
+            None => &self.compute_y_range_from_series(),
         };
 
         //let node = layout::Node::new(size);
