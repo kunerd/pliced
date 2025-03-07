@@ -1,8 +1,8 @@
 mod cartesian;
 mod series;
 
-pub use series::PointSeries;
 pub use series::{line_series, LineSeries};
+pub use series::{point_series, PointSeries};
 
 use core::f32;
 use std::collections::BTreeMap;
@@ -220,53 +220,6 @@ where
     }
 
     pub fn push_series(mut self, series: impl series::Series + 'a) -> Self {
-        // if let AxisRange::Automatic(x_range) = self.x_range {
-        //     let x_min_cur = x_range
-        //         .as_ref()
-        //         .map_or(f32::INFINITY, |range| *range.start());
-        //     let x_max_cur = x_range
-        //         .as_ref()
-        //         .map_or(f32::NEG_INFINITY, |range| *range.end());
-
-        //     let (x_min, x_max) = {
-        //         let iter = match &series {
-        //             //Series::Line(line_series) => line_series.data.into_iter(),
-        //             Series::Line(series) => series.data.clone().into_iter().map(Into::into),
-        //             Series::Point(series) => series.data.clone().into_iter().map(Into::into),
-        //         };
-
-        //         iter.fold((x_min_cur, x_max_cur), |(x_min, x_max), (cur_x, _)| {
-        //             (x_min.min(cur_x), x_max.max(cur_x))
-        //         })
-        //     };
-
-        //     self.x_range = AxisRange::Automatic(Some(x_min..=x_max));
-        // }
-
-        // if let AxisRange::Automatic(y_range) = self.y_range {
-        //     let y_min_cur = y_range
-        //         .as_ref()
-        //         .map_or(f32::INFINITY, |range| *range.start());
-        //     let y_max_cur = y_range
-        //         .as_ref()
-        //         .map_or(f32::NEG_INFINITY, |range| *range.end());
-
-        //     let (y_min, y_max) = {
-        //         let iter = match &series {
-        //             Series::Line(series) => series.data.clone().into_iter().map(Into::into),
-        //             Series::Point(point_series) => {
-        //                 point_series.data.clone().into_iter().map(Into::into)
-        //             }
-        //         };
-
-        //         iter.fold((y_min_cur, y_max_cur), |(y_min, y_max), (_, cur_y)| {
-        //             (y_min.min(cur_y), y_max.max(cur_y))
-        //         })
-        //     };
-
-        //     self.y_range = AxisRange::Automatic(Some(y_min..=y_max));
-        // }
-
         // self.items.add_series(&series);
         self.series.push(Box::new(series));
 
@@ -445,89 +398,6 @@ where
     fn draw_data(&self, frame: &mut canvas::Frame, plane: &Plane) {
         for series in &self.series {
             series.draw(frame, plane);
-            // match series {
-            //     Series::Line(line_series) => {
-            //         frame.with_save(|frame| {
-            //             self.scale(plane, frame);
-
-            //             let mut iter = line_series.data.clone().into_iter().map(Into::into).filter(
-            //                 |(x, y)| {
-            //                     x >= &plane.x.min
-            //                         && x <= &plane.x.max
-            //                         && y >= &plane.y.min
-            //                         && y <= &plane.y.max
-            //                 },
-            //             );
-
-            //             let path = Path::new(|b| {
-            //                 if let Some(p) = iter.next() {
-            //                     b.move_to(Point { x: p.0, y: p.1 });
-            //                     iter.fold(b, |acc, p| {
-            //                         acc.line_to(Point { x: p.0, y: p.1 });
-            //                         acc
-            //                     });
-            //                 }
-            //             });
-
-            //             frame.stroke(
-            //                 &path.transform(&Transform2D::new(1.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
-            //                 Stroke::default()
-            //                     .with_width(2.0)
-            //                     .with_color(line_series.color),
-            //             );
-            //         })
-            //     }
-
-            //     Series::Point(point_series) => {
-            //         let mut iter = point_series
-            //             .data
-            //             .clone()
-            //             .into_iter()
-            //             .map(Into::into)
-            //             .enumerate()
-            //             .filter(|(_i, (x, y))| {
-            //                 x >= &plane.x.min
-            //                     && x <= &plane.x.max
-            //                     && y >= &plane.y.min
-            //                     && y <= &plane.y.max
-            //             });
-
-            //         const DEFAULT_RADIUS: f32 = 4.0;
-            //         let path = Path::new(|b| {
-            //             if let Some((i, p)) = iter.next() {
-            //                 let radius = point_series
-            //                     .style_fn
-            //                     .as_ref()
-            //                     .map(|func| func(i))
-            //                     .unwrap_or(DEFAULT_RADIUS);
-            //                 let point = Point {
-            //                     x: plane.scale_to_cartesian_x(p.0),
-            //                     y: plane.scale_to_cartesian_y(p.1),
-            //                 };
-            //                 b.circle(point, radius);
-            //                 iter.fold(b, |acc, (i, p)| {
-            //                     let radius = point_series
-            //                         .style_fn
-            //                         .as_ref()
-            //                         .map(|func| func(i))
-            //                         .unwrap_or(DEFAULT_RADIUS);
-            //                     let point = Point {
-            //                         x: plane.scale_to_cartesian_x(p.0),
-            //                         y: plane.scale_to_cartesian_y(p.1),
-            //                     };
-            //                     acc.circle(point, radius);
-            //                     acc
-            //                 });
-            //             }
-            //         });
-            //         frame.stroke(
-            //             &path,
-            //             Stroke::default()
-            //                 .with_width(2.0)
-            //                 .with_color(point_series.color),
-            //         );
-            //     }
-            // };
         }
     }
 

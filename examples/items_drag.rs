@@ -1,7 +1,6 @@
 extern crate pliced;
 
-use pliced::chart::Chart;
-use pliced::series::{line_series, point_series};
+use pliced::chart::{line_series, point_series, Chart};
 
 use iced::{widget::container, Element, Length, Task, Theme};
 
