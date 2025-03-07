@@ -20,6 +20,7 @@ use super::cartesian::Plane;
 pub trait Series {
     fn draw(&self, frame: &mut canvas::Frame, plane: &Plane);
     fn x_range(&self) -> RangeInclusive<f32>;
+    fn y_range(&self) -> RangeInclusive<f32>;
 }
 
 #[derive(Clone)]
@@ -94,6 +95,23 @@ where
         };
 
         x_min..=x_max
+    }
+
+    fn y_range(&self) -> RangeInclusive<f32> {
+        let y_min_cur = f32::INFINITY;
+        let y_max_cur = f32::NEG_INFINITY;
+
+        let (y_min, y_max) = {
+            self.data
+                .clone()
+                .into_iter()
+                .map(Into::into)
+                .fold((y_min_cur, y_max_cur), |(y_min, y_max), (_, cur_y)| {
+                    (y_min.min(cur_y), y_max.max(cur_y))
+                })
+        };
+
+        y_min..=y_max
     }
 }
 
