@@ -1,4 +1,3 @@
-pub mod series;
 pub mod chart;
 
 #[cfg(feature = "plotters")]
