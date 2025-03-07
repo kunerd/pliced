@@ -1,6 +1,6 @@
 extern crate pliced;
 
-use pliced::chart::{line_series, Chart, Labels, Margin};
+use pliced::chart::{line_series, point_series, Chart, Labels, Margin};
 
 use iced::{widget::container, Element, Length, Task, Theme};
 
@@ -148,15 +148,19 @@ impl App {
                 .y_labels(Labels::default().format(&|v| format!("{v:.2}")))
                 //.y_range(-1.0..=1.0)
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary)) // .push_series(
-                .push_series(line_series(&self.data_1).color(palette.success)), // .push_series(
-                                                                                //     line_series(self.data.iter().map(|(x, y)| (x, y * 0.5))).color(palette.success),
-                                                                                // )
-                                                                                // .push_series(
-                                                                                //     point_series(self.data.iter().map(|(x, y)| (x, y * 1.2))).color(palette.danger),
-                                                                                // )
-                                                                                // .on_press(|state| Message::MouseDown(state.get_offset()))
-                                                                                // .on_release(|state| Message::MouseUp(state.get_offset()))
-                                                                                // .on_move(|state| Message::OnMove(state.get_offset())),
+                .push_series(line_series(&self.data_1).color(palette.success))
+                .push_series(
+                    point_series::<(), _>(self.data.iter().copied().map(|(x, y)| (x, y * 1.5)))
+                        .color(palette.danger),
+                ), // .push_series(
+                   //     line_series(self.data.iter().map(|(x, y)| (x, y * 0.5))).color(palette.success),
+                   // )
+                   // .push_series(
+                   //     point_series(self.data.iter().map(|(x, y)| (x, y * 1.2))).color(palette.danger),
+                   // )
+                   // .on_press(|state| Message::MouseDown(state.get_offset()))
+                   // .on_release(|state| Message::MouseUp(state.get_offset()))
+                   // .on_move(|state| Message::OnMove(state.get_offset())),
         )
         .into()
     }
