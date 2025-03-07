@@ -1,4 +1,8 @@
 mod cartesian;
+mod series;
+
+pub use series::PointSeries;
+pub use series::{line_series, LineSeries};
 
 use core::f32;
 use std::collections::BTreeMap;
@@ -20,8 +24,6 @@ use ordered_float::OrderedFloat;
 
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
-
-use crate::series;
 
 type StateFn<'a, Message, Id> = Box<dyn Fn(&State<Id>) -> Message + 'a>;
 type BTreeMapFloat<V> = BTreeMap<OrderedFloat<f32>, V>;
@@ -442,7 +444,7 @@ where
 
     fn draw_data(&self, frame: &mut canvas::Frame, plane: &Plane) {
         for series in &self.series {
-            series.draw();
+            series.draw(frame, plane);
             // match series {
             //     Series::Line(line_series) => {
             //         frame.with_save(|frame| {
