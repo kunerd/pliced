@@ -24,7 +24,14 @@ enum Message {
 struct App {
     x_range: RangeInclusive<f32>,
     data: Vec<(f32, f32)>,
+    data_1: Vec<Entry>,
     dragging: Dragging,
+}
+
+#[derive(Debug)]
+struct Entry {
+    x: f32,
+    y: f32,
 }
 
 #[derive(Debug, Default)]
@@ -37,14 +44,21 @@ enum Dragging {
 
 impl App {
     pub fn new() -> (Self, Task<Message>) {
-        let data = (-50..=50)
+        let data: Vec<_> = (-50..=50)
             .map(|x| x as f32 / 50.0)
             .map(|x| (x, x * x))
+            .collect();
+
+        let data_1 = data
+            .iter()
+            .copied()
+            .map(|(x, y)| Entry { x, y: y * 2.0 })
             .collect();
 
         (
             Self {
                 data,
+                data_1,
                 x_range: -1.0..=1.0,
                 dragging: Dragging::None,
             },
@@ -127,20 +141,27 @@ impl App {
                 .x_labels(Labels::default().format(&|v| format!("{v:.2}")))
                 .y_labels(Labels::default().format(&|v| format!("{v:.2}")))
                 //.y_range(-1.0..=1.0)
-                .push_series(line_series(self.data.iter().copied()).color(palette.primary)), // .push_series(
-                                                                                             //     line_series(self.data.iter().map(|(x, y)| (x, y * 0.5))).color(palette.success),
-                                                                                             // )
-                                                                                             // .push_series(
-                                                                                             //     point_series(self.data.iter().map(|(x, y)| (x, y * 1.2))).color(palette.danger),
-                                                                                             // )
-                                                                                             // .on_press(|state| Message::MouseDown(state.get_offset()))
-                                                                                             // .on_release(|state| Message::MouseUp(state.get_offset()))
-                                                                                             // .on_move(|state| Message::OnMove(state.get_offset())),
+                .push_series(line_series(self.data.iter().copied()).color(palette.primary)) // .push_series(
+                .push_series(line_series(&self.data_1).color(palette.success)), // .push_series(
+                                                                                //     line_series(self.data.iter().map(|(x, y)| (x, y * 0.5))).color(palette.success),
+                                                                                // )
+                                                                                // .push_series(
+                                                                                //     point_series(self.data.iter().map(|(x, y)| (x, y * 1.2))).color(palette.danger),
+                                                                                // )
+                                                                                // .on_press(|state| Message::MouseDown(state.get_offset()))
+                                                                                // .on_release(|state| Message::MouseUp(state.get_offset()))
+                                                                                // .on_move(|state| Message::OnMove(state.get_offset())),
         )
         .into()
     }
 
     pub fn theme(&self) -> Theme {
         Theme::TokyoNight
+    }
+}
+
+impl From<&Entry> for (f32, f32) {
+    fn from(entry: &Entry) -> Self {
+        (entry.x, entry.y)
     }
 }
