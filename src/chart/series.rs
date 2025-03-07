@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use iced::{
     widget::canvas::{self, path::lyon_path::geom::euclid::Transform2D, Path, Stroke},
     Color, Point, Vector,
@@ -17,6 +19,7 @@ use super::cartesian::Plane;
 
 pub trait Series {
     fn draw(&self, frame: &mut canvas::Frame, plane: &Plane);
+    fn x_range(&self) -> RangeInclusive<f32>;
 }
 
 #[derive(Clone)]
@@ -74,6 +77,23 @@ where
                 Stroke::default().with_width(2.0).with_color(self.color),
             );
         })
+    }
+
+    fn x_range(&self) -> RangeInclusive<f32> {
+        let x_min_cur = f32::INFINITY;
+        let x_max_cur = f32::NEG_INFINITY;
+
+        let (x_min, x_max) = {
+            self.data
+                .clone()
+                .into_iter()
+                .map(Into::into)
+                .fold((x_min_cur, x_max_cur), |(x_min, x_max), (cur_x, _)| {
+                    (x_min.min(cur_x), x_max.max(cur_x))
+                })
+        };
+
+        x_min..=x_max
     }
 }
 

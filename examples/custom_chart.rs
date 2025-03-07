@@ -137,7 +137,13 @@ impl App {
             Chart::<_, (), _>::new()
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .x_range(self.x_range.clone())
+                .margin(Margin {
+                    top: 0.0,
+                    bottom: 20.0,
+                    left: 0.0,
+                    right: 0.0,
+                })
+                // .x_range(self.x_range.clone())
                 .x_labels(Labels::default().format(&|v| format!("{v:.2}")))
                 .y_labels(Labels::default().format(&|v| format!("{v:.2}")))
                 //.y_range(-1.0..=1.0)
