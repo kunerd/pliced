@@ -1,11 +1,12 @@
 mod cartesian;
+mod items;
 mod series;
 
+use items::Items;
 pub use series::{line_series, LineSeries};
 pub use series::{point_series, PointSeries};
 
 use core::f32;
-use std::collections::BTreeMap;
 
 use cartesian::Plane;
 use iced::advanced::graphics::geometry::Renderer as _;
@@ -20,56 +21,11 @@ use iced::widget::text::Shaping;
 use iced::{alignment, event, touch, Font, Renderer, Vector};
 use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
 use iced::{Pixels, Point};
-use ordered_float::OrderedFloat;
 
 use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 
 type StateFn<'a, Message, Id> = Box<dyn Fn(&State<Id>) -> Message + 'a>;
-type BTreeMapFloat<V> = BTreeMap<OrderedFloat<f32>, V>;
-
-pub struct Items<SeriesId, ItemId>(BTreeMapFloat<BTreeMapFloat<(SeriesId, ItemId)>>);
-
-// impl<SeriesId> Items<SeriesId, usize>
-// where
-//     SeriesId: Clone,
-// {
-//     pub fn add_series<Data>(&mut self, series: &Series<SeriesId, Data>)
-//     where
-//         Data: IntoIterator + Clone,
-//         Data::Item: Into<(f32, f32)>,
-//     {
-//         if let Series::Point(series) = series {
-//             if let Some(id) = &series.id {
-//                 for (index, item) in series.data.clone().into_iter().enumerate() {
-//                     let (x, y) = item.into();
-//                     self.0.entry(OrderedFloat(x)).or_insert_with(|| {
-//                         let mut map = BTreeMap::new();
-//                         map.insert(OrderedFloat(y), (id.clone(), index));
-//                         map
-//                     });
-//                 }
-//             }
-//         }
-//     }
-
-//     pub fn collision(&self, rect: Rectangle) -> Vec<(SeriesId, usize)> {
-//         let range = OrderedFloat(rect.x)..OrderedFloat(rect.x + rect.width);
-
-//         let mut items = vec![];
-//         for (_, bucket) in self.0.range(range) {
-//             let range = OrderedFloat(rect.y)..OrderedFloat(rect.y + rect.height);
-
-//             let item_list = bucket
-//                 .range(range)
-//                 .map(|(_key, (id, index))| (id.clone(), *index));
-
-//             items.extend(item_list);
-//         }
-
-//         items
-//     }
-// }
 
 pub struct Chart<'a, Message, Id, Theme = iced::Theme>
 where
@@ -98,7 +54,7 @@ where
 
     items: Items<Id, usize>,
 
-    series: Vec<Box<dyn series::Series + 'a>>,
+    series: Vec<Box<dyn series::Series<Id> + 'a>>,
     cache: canvas::Cache,
 
     on_move: Option<StateFn<'a, Message, Id>>,
@@ -144,7 +100,7 @@ where
             x_range: None,
             y_range: None,
 
-            items: Items(BTreeMapFloat::new()),
+            items: Items::default(),
 
             series: Vec::new(),
             cache: canvas::Cache::new(),
@@ -219,8 +175,10 @@ where
         self
     }
 
-    pub fn push_series(mut self, series: impl series::Series + 'a) -> Self {
-        // self.items.add_series(&series);
+    pub fn push_series(mut self, series: impl series::Series<Id> + 'a) -> Self {
+        if let Some((id, items)) = series.items() {
+            self.items.add_series(id, &items);
+        }
         self.series.push(Box::new(series));
 
         self
@@ -589,18 +547,18 @@ where
                 if let iced::Event::Mouse(mouse::Event::CursorMoved { .. })
                 | iced::Event::Touch(touch::Event::FingerMoved { .. }) = event
                 {
-                    // if let (Some(coords), Some(plane)) = (state.get_coords(), &state.plane) {
-                    //     let box_width = 10.0;
-                    //     let top_left = Point::new(
-                    //         coords.x - box_width / 2.0 / plane.x.scale,
-                    //         coords.y - box_width / 2.0 / plane.y.scale,
-                    //     );
-                    //     let rect = Rectangle::new(
-                    //         top_left,
-                    //         Size::new(box_width / plane.x.scale, box_width / plane.y.scale),
-                    //     );
-                    //     state.item_list = Some(self.items.collision(rect));
-                    // }
+                    if let (Some(coords), Some(plane)) = (state.get_coords(), &state.plane) {
+                        let box_width = 10.0;
+                        let top_left = Point::new(
+                            coords.x - box_width / 2.0 / plane.x.scale,
+                            coords.y - box_width / 2.0 / plane.y.scale,
+                        );
+                        let rect = Rectangle::new(
+                            top_left,
+                            Size::new(box_width / plane.x.scale, box_width / plane.y.scale),
+                        );
+                        state.item_list = Some(self.items.collision(rect));
+                    }
 
                     shell.publish(message(state));
 
