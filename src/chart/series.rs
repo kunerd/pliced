@@ -17,8 +17,11 @@ use super::cartesian::Plane;
 //     Point(PointSeries<ID, Data>),
 // }
 
-pub trait Series {
+pub trait Series<Id> {
     fn draw(&self, frame: &mut canvas::Frame, plane: &Plane);
+    fn items(&self) -> Option<(Id, Vec<iced::Point>)> {
+        None
+    }
     fn x_range(&self) -> RangeInclusive<f32>;
     fn y_range(&self) -> RangeInclusive<f32>;
 }
@@ -43,7 +46,7 @@ impl<Data> LineSeries<Data> {
     }
 }
 
-impl<Data> Series for LineSeries<Data>
+impl<Id, Data> Series<Id> for LineSeries<Data>
 where
     Data: IntoIterator + Clone,
     Data::Item: Into<(f32, f32)>,
@@ -169,11 +172,11 @@ where
     }
 }
 
-impl<ID, DATA> Series for PointSeries<ID, DATA>
+impl<Id, Data> Series<Id> for PointSeries<Id, Data>
 where
-    ID: Clone,
-    DATA: IntoIterator + Clone,
-    DATA::Item: Into<(f32, f32)>,
+    Id: Clone,
+    Data: IntoIterator + Clone,
+    Data::Item: Into<(f32, f32)>,
 {
     fn draw(&self, frame: &mut canvas::Frame, plane: &Plane) {
         let mut iter = self
@@ -254,6 +257,20 @@ where
         };
 
         y_min..=y_max
+    }
+
+    fn items(&self) -> Option<(Id, Vec<iced::Point>)> {
+        let id = self.id.clone()?;
+
+        let items: Vec<_> = self
+            .data
+            .clone()
+            .into_iter()
+            .map(Into::into)
+            .map(|(x, y)| iced::Point::new(x, y))
+            .collect();
+
+        Some((id, items))
     }
 }
 // impl<ID, Data> From<PointSeries<ID, Data>> for Series<ID, Data>
