@@ -1,15 +1,15 @@
-use std::ops::RangeInclusive;
+use super::{cartesian::Plane, items};
 
 use iced::{
     widget::canvas::{self, path::lyon_path::geom::euclid::Transform2D, Path, Stroke},
     Color, Point, Vector,
 };
 
-use super::cartesian::Plane;
+use std::ops::RangeInclusive;
 
-pub trait Series<Id> {
+pub trait Series<SeriesId, ItemId = usize> {
     fn draw(&self, frame: &mut canvas::Frame, plane: &Plane);
-    fn items(&self) -> Option<(Id, Vec<iced::Point>)> {
+    fn items(&self) -> Option<(SeriesId, Vec<items::Entry<ItemId>>)> {
         None
     }
     fn x_range(&self) -> RangeInclusive<f32>;
@@ -236,7 +236,7 @@ where
         y_min..=y_max
     }
 
-    fn items(&self) -> Option<(Id, Vec<iced::Point>)> {
+    fn items(&self) -> Option<(Id, Vec<items::Entry<usize>>)> {
         let id = self.id.clone()?;
 
         let items: Vec<_> = self
@@ -244,7 +244,8 @@ where
             .clone()
             .into_iter()
             .map(Into::into)
-            .map(|(x, y)| iced::Point::new(x, y))
+            .enumerate()
+            .map(|(index, (x, y))| items::Entry::new(index, iced::Point::new(x, y)))
             .collect();
 
         Some((id, items))
