@@ -149,7 +149,7 @@ impl App {
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary)) // .push_series(
                 .push_series(line_series(&self.data_1).color(palette.success))
                 .push_series(
-                    point_series::<(), _>(self.data.iter().copied().map(|(x, y)| (x, y * 1.5)))
+                    point_series(self.data.iter().copied().map(|(x, y)| (x, y * 1.5)))
                         .color(palette.danger),
                 )
                 .on_press(|state| Message::MouseDown(state.get_offset()))

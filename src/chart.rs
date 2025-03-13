@@ -4,7 +4,7 @@ mod series;
 
 use items::Items;
 pub use series::{line_series, LineSeries};
-pub use series::{point_series, PointSeries};
+pub use series::{point_series, PointSeries, PointStyle};
 
 use core::f32;
 

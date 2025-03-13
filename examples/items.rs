@@ -1,6 +1,6 @@
 extern crate pliced;
 
-use pliced::chart::{line_series, point_series, Chart};
+use pliced::chart::{line_series, point_series, Chart, PointStyle};
 
 use iced::{widget::container, Element, Length, Task, Theme};
 
@@ -18,8 +18,15 @@ enum Message {
 
 #[derive(Debug)]
 struct App {
-    data: Vec<(f32, f32)>,
+    data: Vec<StyledPoint>,
     selected_item: Option<usize>,
+}
+
+#[derive(Debug)]
+struct StyledPoint {
+    coords: (f32, f32),
+    color: iced::Color,
+    border: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -37,7 +44,35 @@ enum ItemId {
 
 impl App {
     pub fn new() -> (Self, Task<Message>) {
-        let data = vec![(0.0, 0.0), (1.0, 1.0), (2.0, 1.0), (3.0, 0.0)];
+        let red = iced::Color::from_rgb8(255, 0, 0);
+        let green = iced::Color::from_rgb8(0, 255, 0);
+        let blue = iced::Color::from_rgb8(0, 0, 255);
+        let yellow = iced::Color::from_rgb8(238, 230, 0);
+
+        let border = 2.0;
+
+        let data = vec![
+            StyledPoint {
+                coords: (0.0, 0.0),
+                color: red,
+                border,
+            },
+            StyledPoint {
+                coords: (1.0, 1.0),
+                color: green,
+                border,
+            },
+            StyledPoint {
+                coords: (2.0, 1.0),
+                color: blue,
+                border: 1.0,
+            },
+            StyledPoint {
+                coords: (3.0, 0.0),
+                color: yellow,
+                border: 3.0,
+            },
+        ];
 
         (
             Self {
@@ -64,7 +99,6 @@ impl App {
 
     pub fn view(&self) -> Element<'_, Message> {
         let palette = self.theme().palette();
-        let selected_item = self.selected_item;
         container(
             Chart::new()
                 .width(Length::Fill)
@@ -73,16 +107,14 @@ impl App {
                 //.y_labels(Labels::default().format(&|v| format!("{v:.0}")))
                 .x_range(-0.5..=3.5)
                 .y_range(-0.5..=1.5)
-                .push_series(line_series(self.data.iter().copied()).color(palette.primary))
+                .push_series(line_series(&self.data).color(palette.primary))
                 .push_series(
-                    point_series(self.data.iter().copied())
+                    point_series(self.data.iter())
                         .color(palette.danger)
-                        .style(move |index| {
-                            if Some(index) == selected_item {
-                                10.0
-                            } else {
-                                4.0
-                            }
+                        .style(|item| PointStyle {
+                            color: Some(item.color),
+                            border: item.border,
+                            ..Default::default()
                         })
                         .with_id(ItemId::PointList),
                 )
@@ -95,5 +127,19 @@ impl App {
 
     pub fn theme(&self) -> Theme {
         Theme::TokyoNight
+    }
+}
+
+impl From<&StyledPoint> for (f32, f32) {
+    fn from(point: &StyledPoint) -> Self {
+        let (x, y) = point.coords;
+        (x, y)
+    }
+}
+
+impl From<StyledPoint> for (f32, f32) {
+    fn from(point: StyledPoint) -> Self {
+        let (x, y) = point.coords;
+        (x, y)
     }
 }

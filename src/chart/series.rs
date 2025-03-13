@@ -108,19 +108,27 @@ where
     }
 }
 
-pub struct PointSeries<ID, Data>
+pub struct PointSeries<'a, SeriesId, Item, Data>
 where
-    ID: Clone,
+    SeriesId: Clone,
+    Data: IntoIterator<Item = Item>,
 {
     pub data: Data,
     pub color: Color,
-    pub id: Option<ID>,
-    pub style_fn: Option<Box<dyn Fn(usize) -> f32>>,
+    pub id: Option<SeriesId>,
+    pub style_fn: Option<Box<dyn Fn(&Item) -> PointStyle + 'a>>,
 }
 
-impl<ID, Data> PointSeries<ID, Data>
+pub struct PointStyle {
+    pub color: Option<iced::Color>,
+    pub border: f32,
+    pub radius: f32,
+}
+
+impl<'a, ID, Item, Data> PointSeries<'a, ID, Item, Data>
 where
     ID: Clone,
+    Data: IntoIterator<Item = Item>,
     //Data: IntoIterator + Clone,
     //Data::Item: Into<(f32, f32)>,
 {
@@ -138,7 +146,7 @@ where
         self
     }
 
-    pub fn style(mut self, style_fn: impl Fn(usize) -> f32 + 'static) -> Self {
+    pub fn style(mut self, style_fn: impl Fn(&Item) -> PointStyle + 'a) -> Self {
         self.style_fn = Some(Box::new(style_fn));
         self
     }
@@ -149,57 +157,32 @@ where
     }
 }
 
-impl<Id, Data> Series<Id> for PointSeries<Id, Data>
+impl<'a, Id, Item, Data> Series<Id> for PointSeries<'a, Id, Item, Data>
 where
     Id: Clone,
-    Data: IntoIterator + Clone,
-    Data::Item: Into<(f32, f32)>,
+    Data: IntoIterator<Item = Item> + Clone,
+    Item: Into<(f32, f32)>,
 {
     fn draw(&self, frame: &mut canvas::Frame, plane: &Plane) {
-        let mut iter = self
-            .data
-            .clone()
-            .into_iter()
-            .map(Into::into)
-            .enumerate()
-            .filter(|(_i, (x, y))| {
-                x >= &plane.x.min && x <= &plane.x.max && y >= &plane.y.min && y <= &plane.y.max
-            });
+        for item in self.data.clone().into_iter() {
+            let style = self
+                .style_fn
+                .as_ref()
+                .map(|func| func(&item))
+                .unwrap_or_else(PointStyle::default);
 
-        const DEFAULT_RADIUS: f32 = 4.0;
-        let path = Path::new(|b| {
-            if let Some((i, p)) = iter.next() {
-                let radius = self
-                    .style_fn
-                    .as_ref()
-                    .map(|func| func(i))
-                    .unwrap_or(DEFAULT_RADIUS);
+            let p = item.into();
+            let point = Point {
+                x: plane.scale_to_cartesian_x(p.0),
+                y: plane.scale_to_cartesian_y(p.1),
+            };
 
-                let point = Point {
-                    x: plane.scale_to_cartesian_x(p.0),
-                    y: plane.scale_to_cartesian_y(p.1),
-                };
-
-                b.circle(point, radius);
-                iter.fold(b, |acc, (i, p)| {
-                    let radius = self
-                        .style_fn
-                        .as_ref()
-                        .map(|func| func(i))
-                        .unwrap_or(DEFAULT_RADIUS);
-                    let point = Point {
-                        x: plane.scale_to_cartesian_x(p.0),
-                        y: plane.scale_to_cartesian_y(p.1),
-                    };
-                    acc.circle(point, radius);
-                    acc
-                });
-            }
-        });
-        frame.stroke(
-            &path,
-            Stroke::default().with_width(2.0).with_color(self.color),
-        );
+            let color = style.color.unwrap_or(self.color);
+            frame.stroke(
+                &Path::circle(point, style.radius),
+                Stroke::default().with_width(style.border).with_color(color),
+            );
+        }
     }
 
     fn x_range(&self) -> RangeInclusive<f32> {
@@ -252,13 +235,24 @@ where
     }
 }
 
+impl Default for PointStyle {
+    fn default() -> Self {
+        Self {
+            color: None,
+            border: 2.0,
+            radius: 5.0,
+        }
+    }
+}
+
 pub fn line_series<Data>(data: Data) -> LineSeries<Data> {
     LineSeries::new(data)
 }
 
-pub fn point_series<Id, Data>(data: Data) -> PointSeries<Id, Data>
+pub fn point_series<'a, Id, Item, Data>(data: Data) -> PointSeries<'a, Id, Item, Data>
 where
     Id: Clone,
+    Data: IntoIterator<Item = Item>,
 {
     PointSeries::new(data)
 }
