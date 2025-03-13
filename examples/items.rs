@@ -34,19 +34,11 @@ enum ItemId {
     PointList,
 }
 
-//#[derive(Debug, Default)]
-//enum Dragging {
-//    CouldStillBeClick(iced::Point),
-//    ForSure(iced::Point),
-//    #[default]
-//    None,
-//}
-
 impl App {
     pub fn new() -> (Self, Task<Message>) {
         let red = iced::Color::from_rgb8(255, 0, 0);
         let green = iced::Color::from_rgb8(0, 255, 0);
-        let blue = iced::Color::from_rgb8(0, 0, 255);
+        let blue = iced::Color::from_rgb8(42, 142, 255);
         let yellow = iced::Color::from_rgb8(238, 230, 0);
 
         let border = 2.0;
@@ -103,11 +95,9 @@ impl App {
             Chart::new()
                 .width(Length::Fill)
                 .height(Length::Fill)
-                //.x_labels(Labels::default().format(&|v| format!("{v:.0}")))
-                //.y_labels(Labels::default().format(&|v| format!("{v:.0}")))
                 .x_range(-0.5..=3.5)
                 .y_range(-0.5..=1.5)
-                .push_series(line_series(&self.data).color(palette.primary))
+                .push_series(line_series(&self.data).color(palette.text))
                 .push_series(
                     point_series(self.data.iter())
                         .color(palette.danger)
