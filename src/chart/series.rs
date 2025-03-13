@@ -119,6 +119,7 @@ where
     pub style_fn: Option<Box<dyn Fn(&Item) -> PointStyle + 'a>>,
 }
 
+#[derive(Debug, Clone)]
 pub struct PointStyle {
     pub color: Option<iced::Color>,
     pub border: f32,
