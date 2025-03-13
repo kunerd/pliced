@@ -1,6 +1,6 @@
 extern crate pliced;
 
-use pliced::chart::{line_series, point_series, Chart};
+use pliced::chart::{line_series, point_series, Chart, PointStyle};
 
 use iced::{widget::container, Element, Length, Task, Theme};
 
@@ -134,12 +134,9 @@ impl App {
                 .push_series(
                     point_series(self.data.iter().copied())
                         .color(palette.danger)
-                        .style(move |index| {
-                            if Some(index) == selected_item {
-                                10.0
-                            } else {
-                                4.0
-                            }
+                        .style(|_item| PointStyle {
+                            radius: 4.0,
+                            ..Default::default()
                         })
                         .with_id(ItemId::PointList),
                 )
