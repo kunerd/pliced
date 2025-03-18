@@ -9,6 +9,12 @@ use std::ops::RangeInclusive;
 
 pub trait Series<SeriesId, ItemId = usize> {
     fn draw(&self, frame: &mut canvas::Frame, plane: &Plane);
+    fn id(&self) -> Option<SeriesId> {
+        None
+    }
+    fn collision_box(&self) -> Option<iced::Rectangle> {
+        None
+    }
     fn items(&self) -> Option<(SeriesId, Vec<items::Entry<ItemId>>)> {
         None
     }
@@ -113,9 +119,10 @@ where
     SeriesId: Clone,
     Data: IntoIterator<Item = Item>,
 {
+    pub id: Option<SeriesId>,
     pub data: Data,
     pub color: Color,
-    pub id: Option<SeriesId>,
+    collision_box: Option<iced::Rectangle>,
     pub style_fn: Option<Box<dyn Fn(&Item) -> PointStyle + 'a>>,
 }
 
@@ -135,15 +142,21 @@ where
 {
     pub fn new(data: Data) -> Self {
         Self {
+            id: None,
             data,
             color: Color::BLACK,
-            id: None,
+            collision_box: None,
             style_fn: None,
         }
     }
 
     pub fn color(mut self, color: impl Into<Color>) -> Self {
         self.color = color.into();
+        self
+    }
+
+    pub fn collision_box(mut self, collision_box: impl Into<iced::Rectangle>) -> Self {
+        self.collision_box = Some(collision_box.into());
         self
     }
 
@@ -218,6 +231,16 @@ where
         };
 
         y_min..=y_max
+    }
+
+    fn id(&self) -> Option<Id> {
+        self.id.clone()
+    }
+
+    fn collision_box(&self) -> Option<iced::Rectangle> {
+        let style = PointStyle::default();
+        self.collision_box
+            .or_else(|| Some(iced::Rectangle::with_radius(style.radius)))
     }
 
     fn items(&self) -> Option<(Id, Vec<items::Entry<usize>>)> {
