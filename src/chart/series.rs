@@ -2,7 +2,9 @@ use super::{cartesian::Plane, items};
 
 use iced::{
     widget::canvas::{self, path::lyon_path::geom::euclid::Transform2D, Path, Stroke},
-    Color, Point, Vector,
+    Color,
+    Length::Fill,
+    Point, Vector,
 };
 
 use std::ops::RangeInclusive;
@@ -130,6 +132,7 @@ where
 #[derive(Debug, Clone)]
 pub struct PointStyle {
     pub color: Option<iced::Color>,
+    pub border_color: Option<iced::Color>,
     pub border: f32,
     pub radius: f32,
 }
@@ -199,9 +202,23 @@ where
             };
 
             let color = style.color.unwrap_or(self.color);
+            let border_color = style.border_color.unwrap_or(self.color);
+
+            let path = &Path::circle(point, style.radius);
+
+            frame.fill(
+                &path,
+                canvas::Fill {
+                    style: canvas::Style::Solid(color),
+                    ..Default::default()
+                },
+            );
+
             frame.stroke(
-                &Path::circle(point, style.radius),
-                Stroke::default().with_width(style.border).with_color(color),
+                &path,
+                Stroke::default()
+                    .with_width(style.border)
+                    .with_color(border_color),
             );
         }
     }
@@ -270,6 +287,7 @@ impl Default for PointStyle {
     fn default() -> Self {
         Self {
             color: None,
+            border_color: None,
             border: 2.0,
             radius: 5.0,
         }

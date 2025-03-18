@@ -26,6 +26,7 @@ struct App {
 struct StyledPoint {
     coords: (f32, f32),
     color: iced::Color,
+    border_color: iced::Color,
     border: f32,
 }
 
@@ -46,22 +47,26 @@ impl App {
         let data = vec![
             StyledPoint {
                 coords: (0.0, 0.0),
-                color: red,
+                color: yellow,
+                border_color: red,
                 border,
             },
             StyledPoint {
                 coords: (1.0, 1.0),
-                color: green,
+                color: yellow,
+                border_color: green,
                 border,
             },
             StyledPoint {
                 coords: (2.0, 1.0),
-                color: blue,
+                color: green,
+                border_color: blue,
                 border: 1.0,
             },
             StyledPoint {
                 coords: (3.0, 0.0),
-                color: yellow,
+                color: green,
+                border_color: yellow,
                 border: 3.0,
             },
         ];
@@ -103,6 +108,7 @@ impl App {
                         .color(palette.danger)
                         .style_for_each(|item| PointStyle {
                             color: Some(item.color),
+                            border_color: Some(item.border_color),
                             border: item.border,
                             ..Default::default()
                         })
