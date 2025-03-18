@@ -24,17 +24,16 @@ pub struct Items<SeriesId, ItemId>(BTreeMapFloat<BTreeMapFloat<(SeriesId, ItemId
 impl<SeriesId, ItemId> Items<SeriesId, ItemId>
 where
     SeriesId: Clone,
-    ItemId: Clone,
+    ItemId: Clone + std::fmt::Debug,
 {
     pub fn add_series(&mut self, id: SeriesId, series: &[Entry<ItemId>]) {
         for entry in series.iter() {
             let point = entry.location;
 
-            self.0.entry(OrderedFloat(point.x)).or_insert_with(|| {
-                let mut map = BTreeMap::new();
-                map.insert(OrderedFloat(point.y), (id.clone(), entry.id.clone()));
-                map
-            });
+            self.0
+                .entry(OrderedFloat(point.x))
+                .or_default()
+                .insert(OrderedFloat(point.y), (id.clone(), entry.id.clone()));
         }
     }
 
