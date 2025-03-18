@@ -25,7 +25,7 @@ struct App {
     dragging: Dragging,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ItemId {
     PointList,
 }

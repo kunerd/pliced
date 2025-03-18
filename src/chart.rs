@@ -403,7 +403,7 @@ where
 impl<Message, Id, Theme> Widget<Message, Theme, Renderer> for Chart<'_, Message, Id, Theme>
 where
     Message: Clone,
-    Id: Clone + 'static,
+    Id: 'static + Clone + PartialEq,
 {
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
@@ -548,16 +548,32 @@ where
                 | iced::Event::Touch(touch::Event::FingerMoved { .. }) = event
                 {
                     if let (Some(coords), Some(plane)) = (state.get_coords(), &state.plane) {
-                        let box_width = 10.0;
-                        let top_left = Point::new(
-                            coords.x - box_width / 2.0 / plane.x.scale,
-                            coords.y - box_width / 2.0 / plane.y.scale,
-                        );
-                        let rect = Rectangle::new(
-                            top_left,
-                            Size::new(box_width / plane.x.scale, box_width / plane.y.scale),
-                        );
-                        state.item_list = Some(self.items.collision(rect));
+                        let iter = self
+                            .series
+                            .iter()
+                            .filter_map(|s| s.id().map(|id| (id, s.collision_box().unwrap())));
+
+                        let mut item_list = vec![];
+                        for (series_id, collision_box) in iter {
+                            let top_left = Point::new(
+                                coords.x - collision_box.width / 2.0 / plane.x.scale,
+                                coords.y - collision_box.height / 2.0 / plane.y.scale,
+                            );
+                            let rect = Rectangle::new(
+                                top_left,
+                                Size::new(
+                                    collision_box.width / plane.x.scale,
+                                    collision_box.height / plane.y.scale,
+                                ),
+                            );
+                            item_list.extend(
+                                self.items
+                                    .collision(rect)
+                                    .into_iter()
+                                    .filter(|i| i.0 == series_id),
+                            );
+                        }
+                        state.item_list = Some(item_list);
                     }
 
                     shell.publish(message(state));
@@ -653,7 +669,7 @@ impl<'a, Message, Id, Theme> From<Chart<'a, Message, Id, Theme>> for Element<'a,
 where
     Message: 'a + Clone,
     Theme: 'a,
-    Id: 'static + Clone,
+    Id: 'static + Clone + PartialEq,
 {
     fn from(chart: Chart<'a, Message, Id, Theme>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(chart)
