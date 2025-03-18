@@ -101,7 +101,7 @@ impl App {
                 .push_series(
                     point_series(self.data.iter())
                         .color(palette.danger)
-                        .style(|item| PointStyle {
+                        .style_for_each(|item| PointStyle {
                             color: Some(item.color),
                             border: item.border,
                             ..Default::default()

@@ -123,6 +123,7 @@ where
     pub data: Data,
     pub color: Color,
     collision_box: Option<iced::Rectangle>,
+    style: PointStyle,
     pub style_fn: Option<Box<dyn Fn(&Item) -> PointStyle + 'a>>,
 }
 
@@ -146,6 +147,7 @@ where
             data,
             color: Color::BLACK,
             collision_box: None,
+            style: PointStyle::default(),
             style_fn: None,
         }
     }
@@ -160,7 +162,12 @@ where
         self
     }
 
-    pub fn style(mut self, style_fn: impl Fn(&Item) -> PointStyle + 'a) -> Self {
+    pub fn style(mut self, style: impl Into<PointStyle>) -> Self {
+        self.style = style.into();
+        self
+    }
+
+    pub fn style_for_each(mut self, style_fn: impl Fn(&Item) -> PointStyle + 'a) -> Self {
         self.style_fn = Some(Box::new(style_fn));
         self
     }
