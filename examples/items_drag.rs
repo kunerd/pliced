@@ -183,7 +183,7 @@ impl App {
                 .push_series(
                     point_series(self.handles.iter())
                         .color(palette.danger)
-                        .style(|handle| handle.style.clone())
+                        .style_for_each(|handle| handle.style.clone())
                         .with_id(ItemId::PointList),
                 )
                 .on_press(|state: &pliced::chart::State<ItemId>| {
