@@ -184,12 +184,12 @@ where
         self
     }
 
-    //pub fn extend_series(
-    //    self,
-    //    series_list: impl IntoIterator<Item = impl Into<Series<'a, Id, Vec<&'a (f32, f32)>>> + Clone,
-    //) -> Self {
-    //    series_list.into_iter().fold(self, Self::push_series)
-    //}
+    pub fn extend_series(
+        self,
+        series_list: impl IntoIterator<Item = impl series::Series<Id> + 'a>,
+    ) -> Self {
+        series_list.into_iter().fold(self, Self::push_series)
+    }
 
     pub fn on_press(mut self, msg: impl Fn(&State<Id>) -> Message + 'a) -> Self {
         self.on_press = Some(Box::new(msg));
