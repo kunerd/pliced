@@ -10,7 +10,6 @@ use core::f32;
 
 use cartesian::Plane;
 use iced::advanced::graphics::geometry::Renderer as _;
-use iced::advanced::text::Renderer as _;
 use iced::advanced::widget::{tree, Tree};
 use iced::advanced::Renderer as _;
 use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
@@ -425,7 +424,7 @@ where
     fn layout(
         &self,
         tree: &mut Tree,
-        renderer: &Renderer,
+        _renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let node = layout::atomic(limits, self.width, self.height);
@@ -443,12 +442,6 @@ where
 
         //let node = layout::Node::new(size);
         let bounds = node.bounds();
-
-        let font_size: f32 = self
-            .x_labels
-            .font_size
-            .unwrap_or_else(|| renderer.default_size())
-            .into();
 
         let x_margin_min = self.margin.left;
         let x_margin_max = self.margin.right;

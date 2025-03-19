@@ -25,8 +25,6 @@ where
 }
 
 struct DataPoint {
-    id: String,
-    name: String,
     x: f32,
     y: f32,
 }
@@ -56,20 +54,7 @@ impl<'a> Chart<'a> {
 }
 
 fn main() {
-    let data = vec![
-        DataPoint {
-            id: "0".to_string(),
-            name: "something".to_string(),
-            x: 0.0,
-            y: 0.0,
-        },
-        DataPoint {
-            id: "1".to_string(),
-            name: "something else".to_string(),
-            x: 1.0,
-            y: 1.0,
-        },
-    ];
+    let data = vec![DataPoint { x: 0.0, y: 0.0 }, DataPoint { x: 1.0, y: 1.0 }];
 
     let point_series_1 = PointSeries::new(&data);
 

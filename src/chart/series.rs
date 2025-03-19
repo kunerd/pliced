@@ -2,9 +2,7 @@ use super::{cartesian::Plane, items};
 
 use iced::{
     widget::canvas::{self, path::lyon_path::geom::euclid::Transform2D, Path, Stroke},
-    Color,
-    Length::Fill,
-    Point, Vector,
+    Color, Point, Vector,
 };
 
 use std::ops::RangeInclusive;
