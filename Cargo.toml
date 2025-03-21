@@ -1,14 +1,17 @@
 [package]
 name = "pliced"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "pliced"
 
-[dependencies]
-iced = { version = "0.13", features = ["canvas","tokio", "advanced"] }
+[dependencies.iced]
+git = "https://github.com/iced-rs/iced.git"
+rev = "4b075b9731f4658a885357024cc77dee10e223c3"
+features = ["canvas", "advanced"]
 
+[dependencies]
 plotters = { version = "0.3", optional = true }
 plotters-backend = { version = "0.3", optional = true }
 once_cell = "1"

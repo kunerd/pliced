@@ -3,22 +3,22 @@ mod items;
 mod series;
 
 use items::Items;
-pub use series::{line_series, LineSeries};
-pub use series::{point_series, PointSeries, PointStyle};
+pub use series::{LineSeries, line_series};
+pub use series::{PointSeries, PointStyle, point_series};
 
 use core::f32;
 
 use cartesian::Plane;
-use iced::advanced::graphics::geometry::Renderer as _;
-use iced::advanced::widget::{tree, Tree};
 use iced::advanced::Renderer as _;
-use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
+use iced::advanced::graphics::geometry::Renderer as _;
+use iced::advanced::widget::{Tree, tree};
+use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, mouse, renderer};
 use iced::mouse::ScrollDelta;
 use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::Shaping;
-use iced::{alignment, event, touch, Font, Renderer, Vector};
-use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
+use iced::{Element, Length, Rectangle, Size, mouse::Cursor};
+use iced::{Font, Renderer, Vector, alignment, touch};
 use iced::{Pixels, Point};
 
 use std::marker::PhantomData;
@@ -266,8 +266,8 @@ where
                 // TODO use theme
                 color: self.x_labels.color.unwrap_or(iced::Color::WHITE),
                 // TODO edge case center tick
-                horizontal_alignment: alignment::Horizontal::Center,
-                vertical_alignment: alignment::Vertical::Top,
+                align_x: alignment::Horizontal::Center,
+                align_y: alignment::Vertical::Top,
                 font: Font::MONOSPACE,
                 ..canvas::Text::default()
             });
@@ -333,8 +333,8 @@ where
                 // TODO use theme
                 color: self.y_labels.color.unwrap_or(iced::Color::WHITE),
                 // TODO edge case center tick
-                horizontal_alignment: alignment::Horizontal::Right,
-                vertical_alignment: alignment::Vertical::Center,
+                align_x: alignment::Horizontal::Right,
+                align_y: alignment::Vertical::Center,
                 font: Font::MONOSPACE,
                 ..canvas::Text::default()
             })
@@ -491,20 +491,19 @@ where
         });
     }
 
-    #[inline]
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: iced::Event,
+        event: &iced::Event,
         layout: Layout<'_>,
-        cursor: Cursor,
+        cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
-        _rectangle: &Rectangle,
-    ) -> event::Status {
+        _viewport: &Rectangle,
+    ) {
         let Some(cursor_position) = cursor.position() else {
-            return event::Status::Ignored;
+            return;
         };
 
         let bounds = layout.bounds();
@@ -522,7 +521,7 @@ where
                 {
                     shell.publish(message(state));
 
-                    return event::Status::Captured;
+                    return;
                 }
             }
 
@@ -532,7 +531,7 @@ where
                 {
                     shell.publish(message(state));
 
-                    return event::Status::Captured;
+                    return;
                 }
             }
 
@@ -571,21 +570,20 @@ where
 
                     shell.publish(message(state));
 
-                    return event::Status::Captured;
+                    return;
                 }
             }
 
             if let Some(message) = self.on_scroll.as_ref() {
                 if let iced::Event::Mouse(mouse::Event::WheelScrolled { delta }) = event {
-                    state.scroll_delta = Some(delta);
+                    state.scroll_delta = Some(*delta);
 
                     shell.publish(message(state));
 
-                    return event::Status::Captured;
+                    return;
                 }
             }
         }
-        event::Status::Ignored
     }
 
     fn mouse_interaction(

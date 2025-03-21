@@ -3,16 +3,15 @@
 // Iced backend for Plotters
 // Copyright: 2022, Joylei <leingliu@gmail.com>
 // License: MIT
-use super::utils::{cvt_color, cvt_stroke, CvtPoint};
+use super::utils::{CvtPoint, cvt_color, cvt_stroke};
 
 use iced::advanced::graphics::geometry;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
-use iced::{font, Font, Size};
+use iced::{Font, Size, font};
 
 use plotters_backend::{
-    text_anchor,
     //FontTransform,
     BackendColor,
     BackendCoord,
@@ -22,6 +21,7 @@ use plotters_backend::{
     DrawingErrorKind,
     FontFamily,
     FontStyle,
+    text_anchor,
 };
 
 use std::collections::BTreeSet;
@@ -219,12 +219,12 @@ where
         if style.color().alpha == 0.0 {
             return Ok(());
         }
-        let horizontal_alignment = match style.anchor().h_pos {
+        let align_x = match style.anchor().h_pos {
             text_anchor::HPos::Left => Horizontal::Left,
             text_anchor::HPos::Right => Horizontal::Right,
             text_anchor::HPos::Center => Horizontal::Center,
         };
-        let vertical_alignment = match style.anchor().v_pos {
+        let align_y = match style.anchor().v_pos {
             text_anchor::VPos::Top => Vertical::Top,
             text_anchor::VPos::Center => Vertical::Center,
             text_anchor::VPos::Bottom => Vertical::Bottom,
@@ -240,8 +240,8 @@ where
             size: (style.size() as f32).into(),
             line_height: Default::default(),
             font,
-            horizontal_alignment,
-            vertical_alignment,
+            align_x,
+            align_y,
             shaping: self.shaping,
         };
         //TODO: fix rotation until text rotation is supported by Iced
