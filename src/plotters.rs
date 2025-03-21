@@ -10,18 +10,18 @@ pub use cartesian::Cartesian;
 pub use program::Program;
 
 use iced::advanced::graphics::geometry;
-use iced::advanced::widget::{tree, Tree};
-use iced::advanced::{layout, mouse, renderer, Clipboard, Layout, Shell, Widget};
+use iced::advanced::widget::{Tree, tree};
+use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, mouse, renderer};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
-use iced::{mouse::Cursor, Element, Length, Rectangle, Size};
-use iced::{touch, Point, Renderer, Vector};
+use iced::{Element, Length, Rectangle, Size, mouse::Cursor};
+use iced::{Point, Renderer, Vector, touch};
 
 use plotters::coord::types::RangedCoordf32;
 use plotters::prelude::*;
 use plotters::style::Color as _;
-use plotters_backend::text_anchor::Pos;
 use plotters_backend::BackendColor;
+use plotters_backend::text_anchor::Pos;
 
 use core::f32;
 use std::marker::PhantomData;
@@ -291,18 +291,17 @@ where
         });
     }
 
-    #[inline]
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: iced::Event,
+        event: &iced::Event,
         layout: Layout<'_>,
         cursor: Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _rectangle: &Rectangle,
-    ) -> event::Status {
+    ) {
         let state: &mut State = tree.state.downcast_mut();
 
         let cursor_position = cursor.position();
@@ -315,34 +314,33 @@ where
                 {
                     shell.publish(message.clone());
 
-                    return event::Status::Captured;
+                    return;
                 }
             }
 
             let canvas_event = match event {
-                iced::Event::Mouse(mouse_event) => Some(event::Event::Mouse(mouse_event)),
-                iced::Event::Touch(touch_event) => Some(event::Event::Touch(touch_event)),
+                iced::Event::Mouse(mouse_event) => Some(event::Event::Mouse(*mouse_event)),
+                iced::Event::Touch(touch_event) => Some(event::Event::Touch(*touch_event)),
                 iced::Event::Keyboard(keyboard_event) => {
-                    Some(event::Event::Keyboard(keyboard_event))
+                    Some(event::Event::Keyboard(keyboard_event.clone()))
                 }
                 iced::Event::Window(_) => None,
+                iced::Event::InputMethod(_) => None,
             };
 
             if let Some(canvas_event) = canvas_event {
                 let state = tree.children[0].state.downcast_mut::<P::State>();
 
-                let (event_status, message) =
+                let (_event_status, message) =
                     self.program.update(state, canvas_event, bounds, cursor);
 
                 if let Some(message) = message {
                     shell.publish(message);
                 }
 
-                return event_status;
+                return;
             }
         }
-
-        event::Status::Ignored
     }
 
     fn mouse_interaction(
