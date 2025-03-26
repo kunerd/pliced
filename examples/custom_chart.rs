@@ -1,10 +1,8 @@
 extern crate pliced;
 
-use pliced::chart::{line_series, point_series, Chart, Labels, Margin};
+use pliced::chart::{Chart, Labels, Margin, line_series, point_series};
 
-use iced::{widget::container, Element, Length, Task, Theme};
-
-use std::ops::RangeInclusive;
+use iced::{Element, Length, Task, Theme, widget::container};
 
 fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view)
@@ -22,7 +20,7 @@ enum Message {
 
 #[derive(Debug)]
 struct App {
-    x_range: RangeInclusive<f32>,
+    x_offset: f32,
     data: Vec<(f32, f32)>,
     data_1: Vec<Entry>,
     dragging: Dragging,
@@ -59,7 +57,7 @@ impl App {
             Self {
                 data,
                 data_1,
-                x_range: -1.0..=1.0,
+                x_offset: 0.0,
                 dragging: Dragging::None,
             },
             Task::none(),
@@ -74,10 +72,11 @@ impl App {
         let mut update_center = |prev_pos: iced::Point, pos: iced::Point| {
             let shift_x = prev_pos.x - pos.x;
 
-            let new_start = self.x_range.start() + shift_x;
-            let new_end = self.x_range.end() + shift_x;
+            // let new_start = self.x_range.start() + shift_x;
+            // let new_end = self.x_range.end() + shift_x;
 
-            self.x_range = new_start..=new_end;
+            // self.x_range = new_start..=new_end;
+            self.x_offset += shift_x;
         };
         match msg {
             Message::MouseDown(pos) => {
@@ -143,7 +142,7 @@ impl App {
                     left: 0.0,
                     right: 0.0,
                 })
-                .x_range(self.x_range.clone())
+                .x_offset(self.x_offset)
                 .x_labels(Labels::default().format(&|v| format!("{v:.2}")))
                 .y_labels(Labels::default().format(&|v| format!("{v:.2}")))
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary)) // .push_series(

@@ -51,6 +51,8 @@ where
     x_range: Option<RangeInclusive<f32>>,
     y_range: Option<RangeInclusive<f32>>,
 
+    x_offset: f32,
+
     items: Items<Id, usize>,
 
     series: Vec<Box<dyn series::Series<Id> + 'a>>,
@@ -98,6 +100,8 @@ where
 
             x_range: None,
             y_range: None,
+
+            x_offset: 0.0,
 
             items: Items::default(),
 
@@ -151,6 +155,11 @@ where
 
     pub fn y_axis(mut self, axis: Axis) -> Self {
         self.y_axis = axis;
+        self
+    }
+
+    pub fn x_offset(mut self, offset: f32) -> Self {
+        self.x_offset = offset;
         self
     }
 
@@ -448,6 +457,8 @@ where
         let y_margin_min = self.margin.bottom;
         let y_margin_max = self.margin.top;
 
+        let x_range = &(x_range.start() + self.x_offset..=x_range.end() + self.x_offset);
+
         let plane = Plane {
             x: cartesian::Axis::new(x_range, x_margin_min, x_margin_max, bounds.width),
             y: cartesian::Axis::new(y_range, y_margin_min, y_margin_max, bounds.height),
@@ -630,6 +641,15 @@ where
         let pos = self.cursor_position?;
 
         self.plane.as_ref().map(|p| p.get_offset(pos))
+    }
+
+    pub fn x_range(&self) -> Option<RangeInclusive<f32>> {
+        let plane = self.plane.as_ref()?;
+
+        let min = plane.x.min;
+        let max = plane.x.max;
+
+        Some(min..=max)
     }
 
     pub fn scroll_delta(&self) -> Option<ScrollDelta> {
