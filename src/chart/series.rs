@@ -1,8 +1,8 @@
 use super::{cartesian::Plane, items};
 
 use iced::{
-    widget::canvas::{self, path::lyon_path::geom::euclid::Transform2D, Path, Stroke},
     Color, Point, Vector,
+    widget::canvas::{self, Path, Stroke, path::lyon_path::geom::euclid::Transform2D},
 };
 
 use std::ops::RangeInclusive;
@@ -122,9 +122,11 @@ where
     pub id: Option<SeriesId>,
     pub data: Data,
     pub color: Color,
+    x_fn: Option<&'a dyn Fn(&Item) -> f32>,
+    y_fn: Option<&'a dyn Fn(&Item) -> f32>,
     collision_box: Option<iced::Rectangle>,
     style: PointStyle,
-    pub style_fn: Option<Box<dyn Fn(&Item) -> PointStyle + 'a>>,
+    pub style_fn: Option<Box<dyn Fn(usize, &Item) -> PointStyle + 'a>>,
 }
 
 #[derive(Debug, Clone)]
@@ -146,6 +148,8 @@ where
         Self {
             id: None,
             data,
+            x_fn: None,
+            y_fn: None,
             color: Color::BLACK,
             collision_box: None,
             style: PointStyle::default(),
@@ -168,13 +172,22 @@ where
         self
     }
 
-    pub fn style_for_each(mut self, style_fn: impl Fn(&Item) -> PointStyle + 'a) -> Self {
+    pub fn style_for_each(mut self, style_fn: impl Fn(usize, &Item) -> PointStyle + 'a) -> Self {
         self.style_fn = Some(Box::new(style_fn));
         self
     }
 
     pub fn with_id(mut self, id: ID) -> Self {
         self.id = Some(id);
+        self
+    }
+
+    pub fn x(mut self, x_fn: &'a dyn Fn(&Item) -> f32) -> Self {
+        self.x_fn = Some(x_fn);
+        self
+    }
+    pub fn y(mut self, y_fn: &'a dyn Fn(&Item) -> f32) -> Self {
+        self.y_fn = Some(y_fn);
         self
     }
 }
@@ -186,17 +199,20 @@ where
     Item: Into<(f32, f32)>,
 {
     fn draw(&self, frame: &mut canvas::Frame, plane: &Plane) {
-        for item in self.data.clone().into_iter() {
+        for (index, item) in self.data.clone().into_iter().enumerate() {
             let style = self
                 .style_fn
                 .as_ref()
-                .map(|func| func(&item))
+                .map(|func| func(index, &item))
                 .unwrap_or_else(PointStyle::default);
+
+            let x = self.x_fn.as_ref().map(|f| f(&item));
+            let y = self.y_fn.as_ref().map(|f| f(&item));
 
             let p = item.into();
             let point = Point {
-                x: plane.scale_to_cartesian_x(p.0),
-                y: plane.scale_to_cartesian_y(p.1),
+                x: plane.scale_to_cartesian_x(x.unwrap_or(p.0)),
+                y: plane.scale_to_cartesian_y(y.unwrap_or(p.1)),
             };
 
             let color = style.color.unwrap_or(self.color);
