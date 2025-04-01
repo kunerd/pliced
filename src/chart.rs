@@ -457,7 +457,7 @@ where
         let y_margin_min = self.margin.bottom;
         let y_margin_max = self.margin.top;
 
-        let x_range = &(x_range.start() + self.x_offset..=x_range.end() + self.x_offset);
+        // let x_range = &(x_range.start() + self.x_offset..=x_range.end() + self.x_offset);
 
         let plane = Plane {
             x: cartesian::Axis::new(x_range, x_margin_min, x_margin_max, bounds.width),
