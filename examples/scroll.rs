@@ -6,7 +6,7 @@ use pliced::chart::{Chart, Labels, line_series, point_series};
 
 use iced::{
     Element, Length, Task, Theme,
-    widget::{container, row, text},
+    widget::{Container, column, container, row, text},
 };
 
 fn main() -> Result<(), iced::Error> {
@@ -139,37 +139,32 @@ impl App {
 
     pub fn view(&self) -> Element<'_, Message> {
         let palette = self.theme().palette();
-        container(row![
-            container(text("Chart"))
-                .style(container::bordered_box)
-                .height(Length::Fill),
-            Chart::<_, (), _>::new()
-                .width(Length::Fill)
-                .height(Length::Fill)
-                // .margin(Margin {
-                //     top: 0.0,
-                //     bottom: 20.0,
-                //     left: 0.0,
-                //     right: 0.0,
-                // })
-                // .x_offset(self.x_offset)
-                .x_range(self.x_range.clone())
-                .x_labels(Labels::default().format(&|v| format!("{v:.2}")))
-                .y_labels(Labels::default().format(&|v| format!("{v:.5}")))
-                .y_range(-2.0..=2.0)
-                .push_series(line_series(self.data.iter().copied()).color(palette.primary)) // .push_series(
-                .push_series(line_series(&self.data_1).color(palette.success))
-                .push_series(
-                    point_series(self.data.iter().copied().map(|(x, y)| (x, y * 1.5)))
-                        .x(&|item| item.0)
-                        .y(&|item| item.1)
-                        .color(palette.danger),
-                )
-                .on_press(|state| Message::MouseDown(state.get_offset()))
-                .on_release(|state| Message::MouseUp(state.get_offset()))
-                .on_move(|state| Message::OnMove(state.get_offset())),
-        ])
-        .into()
+
+        let top = bound("Top").center_x(Length::Fill);
+        let bottom = bound("Bottom").center_x(Length::Fill);
+        let left = bound("Left").center_y(Length::Fill);
+        let right = bound("Right").center_y(Length::Fill);
+
+        let chart = Chart::<_, (), _>::new()
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .x_range(self.x_range.clone())
+            .x_labels(Labels::default().format(&|v| format!("{v:.2}")))
+            .y_labels(Labels::default().format(&|v| format!("{v:.5}")))
+            .y_range(-2.0..=2.0)
+            .push_series(line_series(self.data.iter().copied()).color(palette.primary)) // .push_series(
+            .push_series(line_series(&self.data_1).color(palette.success))
+            .push_series(
+                point_series(self.data.iter().copied().map(|(x, y)| (x, y * 1.5)))
+                    .x(&|item| item.0)
+                    .y(&|item| item.1)
+                    .color(palette.danger),
+            )
+            .on_press(|state| Message::MouseDown(state.get_offset()))
+            .on_release(|state| Message::MouseUp(state.get_offset()))
+            .on_move(|state| Message::OnMove(state.get_offset()));
+
+        column![top, row![left, chart, right], bottom].into()
     }
 
     pub fn theme(&self) -> Theme {
@@ -181,4 +176,10 @@ impl From<&Entry> for (f32, f32) {
     fn from(entry: &Entry) -> Self {
         (entry.x, entry.y)
     }
+}
+
+fn bound<Message>(label: &str) -> Container<Message> {
+    container(text(label).center())
+        .padding(10)
+        .style(container::bordered_box)
 }
