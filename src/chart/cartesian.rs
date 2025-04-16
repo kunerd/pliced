@@ -51,7 +51,8 @@ impl Plane {
     }
 
     pub fn get_cartesian(&self, pos: iced::Point) -> iced::Point {
-        let mut point = pos * iced::Transformation::translate(-self.x.margin_min, -self.y.margin_min);
+        let mut point =
+            pos * iced::Transformation::translate(-self.x.margin_min, -self.y.margin_min);
         point.x /= self.x.scale;
         point.y /= self.y.scale;
         let mut point = point * iced::Transformation::translate(self.x.min, -self.y.max);
@@ -67,6 +68,13 @@ impl Plane {
             pos.x - (self.x.min + self.x.length / 2.0),
             pos.y - (self.y.min + self.y.length / 2.0),
         )
+    }
+
+    pub fn scale_to_cartesian(&self, point: iced::Point) -> iced::Point {
+        iced::Point {
+            x: self.scale_to_cartesian_x(point.x),
+            y: self.scale_to_cartesian_y(point.y),
+        }
     }
 }
 
