@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
-use pliced::plotters::{line_series, point_series, Chart};
+use pliced::plotters::{Chart, line_series, point_series};
 
-use iced::{widget::container, Element, Length, Task};
+use iced::{Element, Length, Task, widget::container};
 
 fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view).run_with(App::new)
