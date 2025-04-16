@@ -1,8 +1,13 @@
 extern crate pliced;
 
+use std::ops::RangeInclusive;
+
 use pliced::chart::{Chart, Labels, Margin, line_series, point_series};
 
-use iced::{Element, Length, Task, Theme, widget::container};
+use iced::{
+    Element, Length, Task, Theme,
+    widget::{container, row, text},
+};
 
 fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view)
@@ -21,6 +26,7 @@ enum Message {
 #[derive(Debug)]
 struct App {
     x_offset: f32,
+    x_range: RangeInclusive<f32>,
     data: Vec<(f32, f32)>,
     data_1: Vec<Entry>,
     dragging: Dragging,
@@ -57,6 +63,7 @@ impl App {
             Self {
                 data,
                 data_1,
+                x_range: -4.0..=4.0,
                 x_offset: 0.0,
                 dragging: Dragging::None,
             },
@@ -72,10 +79,10 @@ impl App {
         let mut update_center = |prev_pos: iced::Point, pos: iced::Point| {
             let shift_x = prev_pos.x - pos.x;
 
-            // let new_start = self.x_range.start() + shift_x;
-            // let new_end = self.x_range.end() + shift_x;
+            let new_start = self.x_range.start() + shift_x;
+            let new_end = self.x_range.end() + shift_x;
 
-            // self.x_range = new_start..=new_end;
+            self.x_range = new_start..=new_end;
             self.x_offset += shift_x;
         };
         match msg {
@@ -132,19 +139,24 @@ impl App {
 
     pub fn view(&self) -> Element<'_, Message> {
         let palette = self.theme().palette();
-        container(
+        container(row![
+            container(text("Chart"))
+                .style(container::bordered_box)
+                .height(Length::Fill),
             Chart::<_, (), _>::new()
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .margin(Margin {
-                    top: 0.0,
-                    bottom: 20.0,
-                    left: 0.0,
-                    right: 0.0,
-                })
-                .x_offset(self.x_offset)
+                // .margin(Margin {
+                //     top: 0.0,
+                //     bottom: 20.0,
+                //     left: 0.0,
+                //     right: 0.0,
+                // })
+                // .x_offset(self.x_offset)
+                .x_range(self.x_range.clone())
                 .x_labels(Labels::default().format(&|v| format!("{v:.2}")))
-                .y_labels(Labels::default().format(&|v| format!("{v:.2}")))
+                .y_labels(Labels::default().format(&|v| format!("{v:.5}")))
+                .y_range(-2.0..=2.0)
                 .push_series(line_series(self.data.iter().copied()).color(palette.primary)) // .push_series(
                 .push_series(line_series(&self.data_1).color(palette.success))
                 .push_series(
@@ -156,7 +168,7 @@ impl App {
                 .on_press(|state| Message::MouseDown(state.get_offset()))
                 .on_release(|state| Message::MouseUp(state.get_offset()))
                 .on_move(|state| Message::OnMove(state.get_offset())),
-        )
+        ])
         .into()
     }
 
