@@ -16,7 +16,6 @@ use iced::advanced::text::Paragraph as _;
 use iced::advanced::widget::{Tree, tree};
 use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, mouse, renderer};
 use iced::mouse::ScrollDelta;
-use iced::widget::canvas::path::lyon_path::geom::euclid::Transform2D;
 use iced::widget::canvas::{self, Path, Stroke};
 use iced::widget::text::{LineHeight, Shaping, Wrapping};
 use iced::{Element, Length, Rectangle, Size, mouse::Cursor};

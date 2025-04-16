@@ -2,12 +2,12 @@ extern crate pliced;
 
 use std::{fmt::Debug, ops::Range};
 
-use pliced::plotters::{Cartesian, Chart, line_series, point_series};
+use pliced::plotters::{Cartesian, line_series, point_series, Chart};
 
 use iced::{
-    Element, Length, Point, Task,
     mouse::ScrollDelta,
     widget::{canvas, container},
+    Element, Length, Point, Task,
 };
 
 fn main() -> Result<(), iced::Error> {
@@ -16,6 +16,7 @@ fn main() -> Result<(), iced::Error> {
 
 #[derive(Debug, Clone)]
 enum Message {
+    MousePressed,
     MouseWheelScrolled(Point, ScrollDelta, Cartesian),
     MouseMoved(Point, Cartesian),
 }
@@ -49,6 +50,9 @@ impl App {
 
     pub fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
+            Message::MousePressed => {
+                dbg!("Chart pressed");
+            }
             Message::MouseWheelScrolled(pos, delta, coord) => {
                 let ScrollDelta::Lines { x: _, y } = delta else {
                     return Task::none();
@@ -87,6 +91,7 @@ impl App {
                 .push_series(point_series(
                     self.data.iter().copied().map(|(x, y)| (x + 0.5, y * 2.0)),
                 ))
+                .on_press(Message::MousePressed)
                 .on_move(Message::MouseMoved)
                 .on_scroll(Message::MouseWheelScrolled),
         )

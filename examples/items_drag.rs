@@ -1,8 +1,8 @@
 extern crate pliced;
 
-use pliced::chart::{line_series, point_series, Chart, PointStyle};
+use pliced::chart::{Chart, PointStyle, line_series, point_series};
 
-use iced::{widget::container, Element, Length, Task, Theme};
+use iced::{Element, Length, Task, Theme, widget::container};
 
 fn main() -> Result<(), iced::Error> {
     iced::application(App::title, App::update, App::view)
@@ -183,7 +183,7 @@ impl App {
                 .push_series(
                     point_series(self.handles.iter())
                         .color(palette.danger)
-                        .style_for_each(|handle| handle.style.clone())
+                        .style_for_each(|_index, handle| handle.style.clone())
                         .with_id(ItemId::PointList),
                 )
                 .on_press(|state: &pliced::chart::State<ItemId>| {
