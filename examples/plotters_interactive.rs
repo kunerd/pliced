@@ -2,12 +2,12 @@ extern crate pliced;
 
 use std::{fmt::Debug, ops::Range};
 
-use pliced::plotters::{Cartesian, line_series, point_series, Chart};
+use pliced::plotters::{Cartesian, Chart, line_series, point_series};
 
 use iced::{
+    Element, Length, Point, Task,
     mouse::ScrollDelta,
     widget::{canvas, container},
-    Element, Length, Point, Task,
 };
 
 fn main() -> Result<(), iced::Error> {
