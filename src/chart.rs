@@ -3,12 +3,13 @@ mod items;
 mod series;
 
 use items::Items;
+pub use series::Series;
 pub use series::{LineSeries, line_series};
 pub use series::{PointSeries, PointStyle, point_series};
 
 use core::f32;
 
-use cartesian::Plane;
+pub use cartesian::Plane;
 use iced::advanced::Renderer as _;
 use iced::advanced::graphics::geometry::Renderer as _;
 use iced::advanced::widget::{Tree, tree};
