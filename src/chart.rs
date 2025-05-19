@@ -645,8 +645,6 @@ where
                     state.scroll_delta = Some(*delta);
 
                     shell.publish(message(state));
-
-                    return;
                 }
             }
         }
@@ -661,6 +659,16 @@ where
         _renderer: &Renderer,
     ) -> mouse::Interaction {
         mouse::Interaction::None
+    }
+}
+
+impl<Message, Id, Theme> Default for Chart<'_, Message, Id, Theme>
+where
+    Message: Clone,
+    Id: Clone,
+{
+    fn default() -> Self {
+        Chart::new()
     }
 }
 
