@@ -1,16 +1,14 @@
 mod axis;
 mod cartesian;
 mod items;
-mod label;
 mod series;
-mod tick;
 
 use axis::Axis;
+pub use axis::Labels;
+use axis::Tick;
 use items::Items;
-pub use label::Labels;
 pub use series::{LineSeries, line_series};
 pub use series::{PointSeries, PointStyle, point_series};
-use tick::Ticks;
 
 use core::f32;
 
@@ -47,8 +45,8 @@ where
     x_axis: Axis,
     y_axis: Axis,
 
-    x_ticks: Ticks,
-    y_ticks: Ticks,
+    x_ticks: Tick,
+    y_ticks: Tick,
 
     x_labels: Labels<'a>,
     y_labels: Labels<'a>,
@@ -97,8 +95,8 @@ where
             x_axis: Axis::default(),
             y_axis: Axis::default(),
 
-            x_ticks: Ticks::default(),
-            y_ticks: Ticks::default(),
+            x_ticks: Tick::default(),
+            y_ticks: Tick::default(),
 
             x_labels: Labels::default(),
             y_labels: Labels::default(),
@@ -168,12 +166,12 @@ where
         self
     }
 
-    pub fn x_ticks(mut self, ticks: Ticks) -> Self {
+    pub fn x_ticks(mut self, ticks: Tick) -> Self {
         self.x_ticks = ticks;
         self
     }
 
-    pub fn y_ticks(mut self, ticks: Ticks) -> Self {
+    pub fn y_ticks(mut self, ticks: Tick) -> Self {
         self.y_ticks = ticks;
         self
     }
