@@ -1,3 +1,9 @@
+mod label;
+mod tick;
+
+pub use label::Labels;
+pub use tick::Tick;
+
 pub struct Axis {
     pub color: iced::Color,
     pub width: f32,

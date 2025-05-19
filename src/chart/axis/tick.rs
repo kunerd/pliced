@@ -1,4 +1,4 @@
-pub struct Ticks {
+pub struct Tick {
     pub color: iced::Color,
     pub height: f32,
     pub width: f32,
@@ -10,7 +10,7 @@ pub struct Ticks {
     //limits: RangeInclusive<T>
 }
 
-impl Ticks {
+impl Tick {
     pub fn color(mut self, color: iced::Color) -> Self {
         self.color = color;
         self
@@ -32,7 +32,7 @@ impl Ticks {
     }
 }
 
-impl Default for Ticks {
+impl Default for Tick {
     fn default() -> Self {
         Self {
             // use color from theme
