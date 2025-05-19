@@ -2,7 +2,10 @@ extern crate pliced;
 
 use std::ops::RangeInclusive;
 
-use pliced::chart::{Chart, Labels, line_series, point_series};
+use pliced::chart::{
+    Chart, Labels,
+    series::{line_series, point_series},
+};
 
 use iced::{
     Element, Length, Task, Theme,
