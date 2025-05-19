@@ -1,6 +1,9 @@
 extern crate pliced;
 
-use pliced::chart::{Chart, PointStyle, line_series, point_series};
+use pliced::chart::{
+    Chart,
+    series::{line_series, point, point_series},
+};
 
 use iced::{Element, Length, Task, Theme, widget::container};
 
@@ -41,14 +44,14 @@ enum Dragging {
 #[derive(Debug, Clone)]
 struct Handle {
     coords: (f32, f32),
-    style: PointStyle,
+    style: point::Style,
 }
 
 impl Handle {
     fn new(coords: (f32, f32)) -> Self {
         Self {
             coords,
-            style: PointStyle::default(),
+            style: point::Style::default(),
         }
     }
 }
@@ -89,7 +92,7 @@ impl App {
                 if id.is_none() {
                     if let Some(handle) = self.hovered_item.and_then(|id| self.handles.get_mut(id))
                     {
-                        handle.style = PointStyle::default()
+                        handle.style = point::Style::default()
                     }
                 }
 
@@ -127,7 +130,7 @@ impl App {
                 match self.dragging {
                     Dragging::CouldStillBeClick(id, _point) => {
                         if let Some(handle) = self.handles.get_mut(id) {
-                            handle.style = PointStyle::default();
+                            handle.style = point::Style::default();
                         }
                         self.hovered_item = None;
                         self.dragging = Dragging::None;
@@ -135,7 +138,7 @@ impl App {
                     Dragging::ForSure(id, prev_pos) => {
                         if let Some(handle) = self.handles.get_mut(id) {
                             handle.coords.0 -= prev_pos.x - pos.x;
-                            handle.style = PointStyle::default();
+                            handle.style = point::Style::default();
                         }
                         self.dragging = Dragging::None;
                     }
@@ -150,7 +153,7 @@ impl App {
         match self.dragging {
             Dragging::CouldStillBeClick(id, _point) | Dragging::ForSure(id, _point) => {
                 if let Some(handle) = self.handles.get_mut(id) {
-                    handle.style = PointStyle {
+                    handle.style = point::Style {
                         color: Some(green),
                         radius: 10.0,
                         ..Default::default()
@@ -159,7 +162,7 @@ impl App {
             }
             Dragging::None => {
                 if let Some(handle) = self.hovered_item.and_then(|id| self.handles.get_mut(id)) {
-                    handle.style = PointStyle {
+                    handle.style = point::Style {
                         color: Some(yellow),
                         radius: 8.0,
                         ..Default::default()

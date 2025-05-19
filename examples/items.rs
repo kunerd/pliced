@@ -1,6 +1,9 @@
 extern crate pliced;
 
-use pliced::chart::{Chart, PointStyle, line_series, point_series};
+use pliced::chart::{
+    Chart,
+    series::{line_series, point, point_series},
+};
 
 use iced::{Element, Length, Task, Theme, widget::container};
 
@@ -106,7 +109,7 @@ impl App {
                 .push_series(
                     point_series(self.data.iter())
                         .color(palette.danger)
-                        .style_for_each(|_index, item| PointStyle {
+                        .style_for_each(|_index, item| point::Style {
                             color: Some(item.color),
                             border_color: Some(item.border_color),
                             border: item.border,

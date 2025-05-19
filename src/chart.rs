@@ -1,14 +1,12 @@
 mod axis;
 mod cartesian;
 mod items;
-mod series;
+pub mod series;
 
 use axis::Axis;
 pub use axis::Labels;
 use axis::Tick;
 use items::Items;
-pub use series::{LineSeries, line_series};
-pub use series::{PointSeries, PointStyle, point_series};
 
 use core::f32;
 
