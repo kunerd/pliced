@@ -337,8 +337,6 @@ where
                 if let Some(message) = message {
                     shell.publish(message);
                 }
-
-                return;
             }
         }
     }
@@ -393,6 +391,9 @@ where
     }
 }
 
+type OnScrollFn<'a, Message> =
+    Box<dyn Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a>;
+
 pub struct Attributes<'a, Message>
 where
     Message: Clone,
@@ -402,7 +403,7 @@ where
     series: Vec<Series>,
 
     on_move: Option<Box<dyn Fn(iced::Point, Cartesian) -> Message + 'a>>,
-    on_scroll: Option<Box<dyn Fn(iced::Point, mouse::ScrollDelta, Cartesian) -> Message + 'a>>,
+    on_scroll: Option<OnScrollFn<'a, Message>>,
 }
 
 impl<Message> Default for Attributes<'_, Message>

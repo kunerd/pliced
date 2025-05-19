@@ -9,6 +9,8 @@ use crate::chart::{cartesian::Plane, items};
 
 use super::Series;
 
+type StyleFn<'a, Item> = Box<dyn Fn(usize, &Item) -> Style + 'a>;
+
 pub struct PointSeries<'a, SeriesId, Item, Data>
 where
     SeriesId: Clone,
@@ -21,7 +23,7 @@ where
     y_fn: Option<&'a dyn Fn(&Item) -> f32>,
     collision_box: Option<iced::Rectangle>,
     style: Style,
-    pub style_fn: Option<Box<dyn Fn(usize, &Item) -> Style + 'a>>,
+    pub style_fn: Option<StyleFn<'a, Item>>,
 }
 
 #[derive(Debug, Clone)]
@@ -87,7 +89,7 @@ where
     }
 }
 
-impl<'a, Id, Item, Data> Series<Id> for PointSeries<'a, Id, Item, Data>
+impl<Id, Item, Data> Series<Id> for PointSeries<'_, Id, Item, Data>
 where
     Id: Clone,
     Data: IntoIterator<Item = Item> + Clone,
@@ -99,7 +101,7 @@ where
                 .style_fn
                 .as_ref()
                 .map(|func| func(index, &item))
-                .unwrap_or_else(Style::default);
+                .unwrap_or_default();
 
             let x = self.x_fn.as_ref().map(|f| f(&item));
             let y = self.y_fn.as_ref().map(|f| f(&item));
@@ -116,7 +118,7 @@ where
             let path = &Path::circle(point, style.radius);
 
             frame.fill(
-                &path,
+                path,
                 canvas::Fill {
                     style: canvas::Style::Solid(color),
                     ..Default::default()
@@ -124,7 +126,7 @@ where
             );
 
             frame.stroke(
-                &path,
+                path,
                 Stroke::default()
                     .with_width(style.border)
                     .with_color(border_color),

@@ -88,11 +88,8 @@ impl App {
     }
 
     pub fn update(&mut self, msg: Message) -> Task<Message> {
-        match &msg {
-            Message::OnMove(Some(items)) => {
-                self.selected_item = items.first().map(|(_, index)| *index)
-            }
-            _ => {}
+        if let Message::OnMove(Some(items)) = &msg {
+            self.selected_item = items.first().map(|(_, index)| *index)
         }
         Task::none()
     }
