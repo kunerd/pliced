@@ -2,7 +2,7 @@ extern crate pliced;
 
 use std::{fmt::Debug, ops::Range};
 
-use pliced::plotters::{Cartesian, Chart, line_series, point_series};
+use pliced::{Cartesian, Chart, line_series, point_series};
 
 use iced::{
     Element, Length, Point, Task,
