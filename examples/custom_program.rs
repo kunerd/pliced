@@ -1,9 +1,9 @@
 use iced::{Element, Renderer, Task};
-use pliced::plotters::{Chart, IcedChartBackend, Program};
+use pliced::{Chart, IcedChartBackend, Program};
 use plotters::{
     prelude::PathElement,
     series::LineSeries,
-    style::{Color, IntoFont, BLACK, RED, WHITE},
+    style::{BLACK, Color, IntoFont, RED, WHITE},
 };
 
 fn main() -> Result<(), iced::Error> {

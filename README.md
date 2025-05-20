@@ -1,12 +1,14 @@
 # pliced
 
-An experimental `Chart` widget for [iced](https://github.com/iced-rs/iced).
+A chart widget integrating [plotters](https://github.com/plotters-rs/plotters) into [iced](https://github.com/iced-rs/iced).
 
-Currently there are two chart implementations, one using [plotters](https://github.com/plotters-rs/plotters) as backend and 
-an iced native implementation.
+[!NOTE]
+The iced native chart widget previously included in this repository has been moved to [prism](https://github.com/kunerd/prism).
 
 ## Usage
+
 There are two ways to use this library. You can just use the provided chart widget:
+
 ```rust
   Chart::new()
       .width(Length::Fill)
@@ -25,7 +27,9 @@ There are two ways to use this library. You can just use the provided chart widg
           self.data.iter().copied().map(|(x, y)| (x + 0.5, y * 2.0)),
       ))
 ```
+
 or define a custom chart `Program` which provides full access to the underlying `plotters` `ChartBuilder`:
+
 ```rust
 impl pliced::Program<Message> for App {
     type State = ();
@@ -63,4 +67,9 @@ impl pliced::Program<Message> for App {
     }
 }
 ```
+
 Take a look into [examples](examples) for more information.
+
+## License
+
+MIT

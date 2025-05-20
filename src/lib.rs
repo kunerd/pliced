@@ -1,4 +1,2 @@
-pub mod chart;
-
-#[cfg(feature = "plotters")]
-pub mod plotters;
+mod plotters;
+pub use plotters::*;

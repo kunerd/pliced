@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use pliced::plotters::{Chart, line_series, point_series};
+use pliced::{Chart, line_series, point_series};
 
 use iced::{Element, Length, Task, widget::container};
 
