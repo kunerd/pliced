@@ -2,8 +2,8 @@
 
 A chart widget integrating [plotters](https://github.com/plotters-rs/plotters) into [iced](https://github.com/iced-rs/iced).
 
-[!NOTE]
-The iced native chart widget previously included in this repository has been moved to [prism](https://github.com/kunerd/prism).
+> [!NOTE]
+> The iced native chart widget previously included in this repository has been moved to [prism](https://github.com/kunerd/prism).
 
 ## Usage
 
