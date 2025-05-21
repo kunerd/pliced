@@ -1,15 +1,11 @@
-// plotters-iced
-//
-// Iced backend for Plotters
-// Copyright: 2022, Joylei <leingliu@gmail.com>
-// License: MIT
 use super::utils::{CvtPoint, cvt_color, cvt_stroke};
 
-use iced::advanced::graphics::geometry;
+use iced::advanced::graphics::{self, geometry};
+use iced::advanced::text::{self, Alignment, Paragraph as _};
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
-use iced::{Font, Size, font};
+use iced::{Font, Pixels, Size, font};
 
 use plotters_backend::{
     //FontTransform,
@@ -47,7 +43,7 @@ where
     Renderer: geometry::Renderer,
 {
     frame: &'a mut geometry::Frame<Renderer>,
-    //backend: &'a B,
+    default_font_size: Pixels,
     shaping: Shaping,
 }
 
@@ -55,10 +51,14 @@ impl<'a, Renderer> IcedChartBackend<'a, Renderer>
 where
     Renderer: geometry::Renderer,
 {
-    pub fn new(frame: &'a mut geometry::Frame<Renderer>, shaping: Shaping) -> Self {
+    pub fn new(
+        frame: &'a mut geometry::Frame<Renderer>,
+        default_font_size: impl Into<Pixels>,
+        shaping: Shaping,
+    ) -> Self {
         Self {
             frame,
-            //backend,
+            default_font_size: default_font_size.into(),
             shaping,
         }
     }
@@ -268,39 +268,39 @@ where
         Ok(())
     }
 
-    //#[inline]
-    //fn estimate_text_size<S: BackendTextStyle>(
-    //    &self,
-    //    text: &str,
-    //    style: &S,
-    //) -> Result<(u32, u32), DrawingErrorKind<Self::ErrorType>> {
-    //    let font = style_to_font(style);
-    //    let bounds = self.frame.size();
-    //    let horizontal_alignment = match style.anchor().h_pos {
-    //        text_anchor::HPos::Left => Horizontal::Left,
-    //        text_anchor::HPos::Right => Horizontal::Right,
-    //        text_anchor::HPos::Center => Horizontal::Center,
-    //    };
-    //    let vertical_alignment = match style.anchor().v_pos {
-    //        text_anchor::VPos::Top => Vertical::Top,
-    //        text_anchor::VPos::Center => Vertical::Center,
-    //        text_anchor::VPos::Bottom => Vertical::Bottom,
-    //    };
+    #[inline]
+    fn estimate_text_size<S: BackendTextStyle>(
+        &self,
+        text: &str,
+        style: &S,
+    ) -> Result<(u32, u32), DrawingErrorKind<Self::ErrorType>> {
+        let font = style_to_font(style);
+        let bounds = self.frame.size();
+        let align_x = match style.anchor().h_pos {
+            text_anchor::HPos::Left => Alignment::Left,
+            text_anchor::HPos::Center => Alignment::Center,
+            text_anchor::HPos::Right => Alignment::Right,
+        };
+        let align_y = match style.anchor().v_pos {
+            text_anchor::VPos::Top => Vertical::Top,
+            text_anchor::VPos::Center => Vertical::Center,
+            text_anchor::VPos::Bottom => Vertical::Bottom,
+        };
 
-    //    let p = B::Paragraph::with_text(text::Text {
-    //        content: text,
-    //        bounds,
-    //        size: self.backend.default_size(),
-    //        line_height: Default::default(),
-    //        font,
-    //        horizontal_alignment,
-    //        vertical_alignment,
-    //        shaping: self.shaping,
-    //        wrapping: text::Wrapping::Word,
-    //    });
-    //    let size = p.min_bounds();
-    //    Ok((size.width as u32, size.height as u32))
-    //}
+        let p = graphics::text::Paragraph::with_text(text::Text {
+            content: text,
+            bounds,
+            size: self.default_font_size,
+            line_height: Default::default(),
+            font,
+            align_x,
+            align_y,
+            shaping: self.shaping,
+            wrapping: text::Wrapping::Word,
+        });
+        let size = p.min_bounds();
+        Ok((size.width as u32, size.height as u32))
+    }
 
     #[inline]
     fn blit_bitmap(

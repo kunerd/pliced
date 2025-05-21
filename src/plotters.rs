@@ -11,7 +11,7 @@ pub use program::Program;
 
 use iced::advanced::graphics::geometry;
 use iced::advanced::widget::{Tree, tree};
-use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, mouse, renderer};
+use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, mouse, renderer, text};
 use iced::widget::canvas;
 use iced::widget::text::Shaping;
 use iced::{Element, Length, Rectangle, Size, mouse::Cursor};
@@ -211,7 +211,7 @@ impl<P, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
 where
     Message: Clone,
     P: Program<Message, Theme, Renderer>,
-    Renderer: geometry::Renderer,
+    Renderer: geometry::Renderer + text::Renderer,
 {
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
@@ -263,9 +263,11 @@ where
 
         let state = tree.children[0].state.downcast_ref::<P::State>();
 
+        let default_font_size = renderer.default_size();
         let geometry = if let Some(cache) = &self.cache {
             cache.draw(renderer, bounds.size(), |frame| {
-                let root = IcedChartBackend::new(frame, self.shaping).into_drawing_area();
+                let root = IcedChartBackend::new(frame, default_font_size, self.shaping)
+                    .into_drawing_area();
                 let mut chart_builder = ChartBuilder::on(&root);
 
                 self.program
@@ -275,7 +277,8 @@ where
             })
         } else {
             let mut frame = canvas::Frame::new(renderer, bounds.size());
-            let root = IcedChartBackend::new(&mut frame, self.shaping).into_drawing_area();
+            let root = IcedChartBackend::new(&mut frame, default_font_size, self.shaping)
+                .into_drawing_area();
             let mut chart_builder = ChartBuilder::on(&root);
 
             self.program
@@ -381,7 +384,7 @@ impl<'a, P, Message, Theme, Renderer> From<Chart<'a, Message, P, Theme, Renderer
 where
     Message: 'a + Clone,
     Theme: 'a,
-    Renderer: 'a + geometry::Renderer,
+    Renderer: 'a + geometry::Renderer + text::Renderer,
     P: 'a + Program<Message, Theme, Renderer>,
 {
     fn from(
